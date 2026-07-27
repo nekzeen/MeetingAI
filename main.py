@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""Point d'entrée de MeetingAI.
+"""Point d'entrée de l'application MeetingAI."""
 
-Ce fichier est un placeholder. Aucune logique métier n'est implémentée.
-"""
+import sys
+
+from meetingai.gui.application import MeetingAIApplication
 
 
-def main():
-    """Point d'entrée principal de l'application."""
-    print("MeetingAI est initialisé.")
+def main() -> int:
+    """Lance l'application MeetingAI.
+
+    Returns:
+        Code de retour de l'application.
+    """
+    app = MeetingAIApplication()
+    return app.exec()
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
