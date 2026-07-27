@@ -4,15 +4,16 @@ import unittest
 
 from PySide6.QtWidgets import (
     QApplication,
+    QHBoxLayout,
     QMainWindow,
     QMenu,
     QMenuBar,
     QStatusBar,
     QToolBar,
-    QWidget,
 )
 
 from meetingai.gui.main_window import MainWindow
+from meetingai.gui.workspace import Workspace
 
 
 class TestMainWindow(unittest.TestCase):
@@ -45,9 +46,14 @@ class TestMainWindow(unittest.TestCase):
         self.assertEqual(self.window.width(), 1200)
         self.assertEqual(self.window.height(), 800)
 
-    def test_has_central_widget(self) -> None:
-        """La fenêtre possède un widget central vide."""
-        self.assertIsInstance(self.window.centralWidget(), QWidget)
+    def test_central_widget_is_workspace(self) -> None:
+        """La fenêtre utilise le composant Workspace comme widget central."""
+        self.assertIsInstance(self.window.centralWidget(), Workspace)
+
+    def test_workspace_has_horizontal_layout(self) -> None:
+        """Le workspace dispose d'un layout horizontal vide."""
+        workspace = self.window.centralWidget()
+        self.assertIsInstance(workspace.layout(), QHBoxLayout)
 
     def test_has_menu_bar(self) -> None:
         """La fenêtre possède une barre de menus."""

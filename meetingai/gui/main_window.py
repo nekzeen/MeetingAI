@@ -7,8 +7,9 @@ from PySide6.QtWidgets import (
     QMenuBar,
     QStatusBar,
     QToolBar,
-    QWidget,
 )
+
+from meetingai.gui.workspace import Workspace
 
 
 class MainWindow(QMainWindow):
@@ -46,7 +47,7 @@ class MainWindow(QMainWindow):
 
     def _setup_ui(self) -> None:
         """Construit le squelette de l'interface graphique."""
-        self.setCentralWidget(QWidget(self))
+        self.setCentralWidget(Workspace(self))
         self._setup_menu_bar()
         self._setup_tool_bar()
         self.setStatusBar(QStatusBar(self))
