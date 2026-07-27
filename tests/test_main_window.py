@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QToolBar,
 )
 
+from meetingai.gui.action_manager import ActionManager
 from meetingai.gui.main_window import MainWindow
 from meetingai.gui.workspace import Workspace
 
@@ -32,6 +33,15 @@ class TestMainWindow(unittest.TestCase):
         """Ferme et détruit la fenêtre."""
         self.window.close()
         self.window.deleteLater()
+        ActionManager._reset_instance()
+
+    def _menu_by_title(self, title: str) -> QMenu | None:
+        """Retourne le menu dont le titre correspond."""
+        for action in self.window.menuBar().actions():
+            menu = action.menu()
+            if menu is not None and menu.title() == title:
+                return menu
+        return None
 
     def test_is_qmainwindow(self) -> None:
         """La fenêtre hérite de QMainWindow."""
@@ -66,12 +76,29 @@ class TestMainWindow(unittest.TestCase):
         expected = ["Fichier", "Édition", "Outils", "Affichage", "Aide"]
         self.assertEqual(titles, expected)
 
-    def test_menus_have_no_actions(self) -> None:
-        """Les menus ne contiennent aucune action."""
-        for action in self.window.menuBar().actions():
-            menu = action.menu()
-            if menu:
-                self.assertFalse(menu.actions())
+    def test_file_menu_contains_expected_actions(self) -> None:
+        """Le menu Fichier contient les actions attendues."""
+        file_menu = self._menu_by_title("Fichier")
+        self.assertIsNotNone(file_menu)
+        texts = [action.text() for action in file_menu.actions()]
+        self.assertIn("Nouveau", texts)
+        self.assertIn("Ouvrir", texts)
+        self.assertIn("Enregistrer", texts)
+        self.assertIn("Quitter", texts)
+
+    def test_tools_menu_contains_preferences(self) -> None:
+        """Le menu Outils contient l'action Préférences."""
+        tools_menu = self._menu_by_title("Outils")
+        self.assertIsNotNone(tools_menu)
+        texts = [action.text() for action in tools_menu.actions()]
+        self.assertIn("Préférences", texts)
+
+    def test_help_menu_contains_about(self) -> None:
+        """Le menu Aide contient l'action À propos."""
+        help_menu = self._menu_by_title("Aide")
+        self.assertIsNotNone(help_menu)
+        texts = [action.text() for action in help_menu.actions()]
+        self.assertIn("À propos", texts)
 
     def test_has_tool_bar(self) -> None:
         """La fenêtre possède une barre d'outils vide."""

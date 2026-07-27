@@ -1,0 +1,70 @@
+"""Gestionnaire centralisé des QAction de MeetingAI."""
+
+from __future__ import annotations
+
+from typing import ClassVar
+
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QWidget
+
+
+class ActionManager:
+    """Crée et expose les QAction partagées de l'application.
+
+    Cette classe suit le pattern singleton afin de garantir une unique source
+    de vérité pour les actions réutilisées par les menus, les barres d'outils,
+    les raccourcis clavier et les menus contextuels.
+
+    Aucune logique métier n'est rattachée aux actions ici.
+
+    Args:
+        parent: Widget parent utilisé pour les QAction.
+    """
+
+    _instance: ClassVar[ActionManager | None] = None
+    _initialized: ClassVar[bool] = False
+
+    def __new__(cls, parent: QWidget | None = None) -> ActionManager:
+        """Retourne l'instance unique du gestionnaire d'actions."""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        """Initialise les actions si l'instance n'a pas encore été créée."""
+        if ActionManager._initialized:
+            return
+        ActionManager._initialized = True
+        self._parent = parent
+        self._create_actions()
+
+    def _create_actions(self) -> None:
+        """Instancie les QAction de base de l'application."""
+        self.new_action = QAction("Nouveau", self._parent)
+        self.open_action = QAction("Ouvrir", self._parent)
+        self.save_action = QAction("Enregistrer", self._parent)
+        self.quit_action = QAction("Quitter", self._parent)
+        self.preferences_action = QAction("Préférences", self._parent)
+        self.about_action = QAction("À propos", self._parent)
+
+    @property
+    def actions(self) -> dict[str, QAction]:
+        """Retourne un dictionnaire nommé des actions disponibles.
+
+        Returns:
+            Dictionnaire clé/valeur des QAction de l'application.
+        """
+        return {
+            "new": self.new_action,
+            "open": self.open_action,
+            "save": self.save_action,
+            "quit": self.quit_action,
+            "preferences": self.preferences_action,
+            "about": self.about_action,
+        }
+
+    @classmethod
+    def _reset_instance(cls) -> None:
+        """Réinitialise le singleton. Réservé aux tests."""
+        cls._instance = None
+        cls._initialized = False

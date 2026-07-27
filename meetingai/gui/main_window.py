@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QToolBar,
 )
 
+from meetingai.gui.action_manager import ActionManager
 from meetingai.gui.workspace import Workspace
 
 
@@ -48,15 +49,34 @@ class MainWindow(QMainWindow):
     def _setup_ui(self) -> None:
         """Construit le squelette de l'interface graphique."""
         self.setCentralWidget(Workspace(self))
+        self._action_manager = ActionManager(self)
         self._setup_menu_bar()
         self._setup_tool_bar()
         self.setStatusBar(QStatusBar(self))
 
     def _setup_menu_bar(self) -> None:
-        """Ajoute une barre de menus vide."""
+        """Construit la barre de menus à partir de l'ActionManager."""
         menu_bar: QMenuBar = self.menuBar()
-        for title in self._MENU_TITLES:
-            menu_bar.addMenu(QMenu(title, self))
+        actions = self._action_manager.actions
+
+        file_menu = QMenu("Fichier", self)
+        menu_bar.addMenu(file_menu)
+        file_menu.addAction(actions["new"])
+        file_menu.addAction(actions["open"])
+        file_menu.addAction(actions["save"])
+        file_menu.addAction(actions["quit"])
+
+        menu_bar.addMenu(QMenu("Édition", self))
+
+        tools_menu = QMenu("Outils", self)
+        menu_bar.addMenu(tools_menu)
+        tools_menu.addAction(actions["preferences"])
+
+        menu_bar.addMenu(QMenu("Affichage", self))
+
+        help_menu = QMenu("Aide", self)
+        menu_bar.addMenu(help_menu)
+        help_menu.addAction(actions["about"])
 
     def _setup_tool_bar(self) -> None:
         """Ajoute une barre d'outils vide."""
