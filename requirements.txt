@@ -1,0 +1,4 @@
+# Python 3.12+
+
+# Placeholder for project dependencies.
+# No business logic or AI/Whisper dependencies should be added here yet.
