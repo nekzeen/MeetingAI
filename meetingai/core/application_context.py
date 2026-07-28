@@ -14,6 +14,7 @@ from meetingai.config.config_manager import ConfigManager
 from meetingai.controllers.media_controller import MediaController
 from meetingai.core.service_registry import ServiceRegistry
 from meetingai.core.task_manager import TaskManager
+from meetingai.core.worker_manager import WorkerManager
 from meetingai.services.model_manager import ModelManager
 from meetingai.gui.action_manager import ActionManager
 from meetingai.logging.logger_manager import LoggerManager
@@ -58,6 +59,7 @@ class ApplicationContext:
             NullSpeechToTextService()
         )
         self.model_manager: ModelManager = ModelManager()
+        self.worker_manager: WorkerManager = WorkerManager()
         self._register_components()
 
     def _register_components(self) -> None:
@@ -73,6 +75,7 @@ class ApplicationContext:
             self.speech_to_text_service,
         )
         self.service_registry.register("model_manager", self.model_manager)
+        self.service_registry.register("worker_manager", self.worker_manager)
 
     def get_service(self, name: str) -> Any:
         """Retourne un service enregistré dans le registre.
