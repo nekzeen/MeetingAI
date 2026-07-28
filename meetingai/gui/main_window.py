@@ -55,6 +55,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(QStatusBar(self))
         if self._context is not None:
             self._action_manager.connect_open_media(self._context.media_controller)
+            self._action_manager.connect_transcribe(self._context.media_controller)
 
     def _setup_menu_bar(self) -> None:
         """Construit la barre de menus à partir de l'ActionManager."""
@@ -72,6 +73,7 @@ class MainWindow(QMainWindow):
 
         tools_menu = QMenu("Outils", self)
         menu_bar.addMenu(tools_menu)
+        tools_menu.addAction(actions["transcribe"])
         tools_menu.addAction(actions["preferences"])
 
         menu_bar.addMenu(QMenu("Affichage", self))

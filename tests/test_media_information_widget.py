@@ -12,9 +12,10 @@ from meetingai.models.media_file import MediaFile, MediaType
 
 
 class _FakeMediaController(QObject):
-    """Contrôleur factice émettant un signal media_loaded."""
+    """Contrôleur factice émettant media_loaded et transcription_ready."""
 
     media_loaded = Signal(object)
+    transcription_ready = Signal(object)
 
 
 class TestMediaInformationWidget(unittest.TestCase):

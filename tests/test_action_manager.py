@@ -62,6 +62,12 @@ class TestActionManager(unittest.TestCase):
         self.assertIsInstance(manager.about_action, QAction)
         self.assertEqual(manager.about_action.text(), "À propos")
 
+    def test_transcribe_action_exists(self) -> None:
+        """L'action 'Transcrire' est créée."""
+        manager = ActionManager()
+        self.assertIsInstance(manager.transcribe_action, QAction)
+        self.assertEqual(manager.transcribe_action.text(), "Transcrire")
+
     def test_actions_dictionary(self) -> None:
         """Le dictionnaire expose toutes les actions attendues."""
         manager = ActionManager()
@@ -71,6 +77,7 @@ class TestActionManager(unittest.TestCase):
             "open",
             "save",
             "quit",
+            "transcribe",
             "preferences",
             "about",
         }

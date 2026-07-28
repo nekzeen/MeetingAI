@@ -10,11 +10,15 @@ from PySide6.QtWidgets import QApplication
 from meetingai.core.application_context import ApplicationContext
 from meetingai.core.service_registry import ServiceRegistry
 from meetingai.core.task import Task
+from meetingai.core.task_manager import TaskManager
+from meetingai.core.worker_manager import WorkerManager
 from meetingai.gui.action_manager import ActionManager
 from meetingai.logging.logger_manager import LoggerManager
 from meetingai.models.media_file import MediaFile, MediaType
 from meetingai.services.media_service import MediaService
+from meetingai.services.model_manager import ModelManager
 from meetingai.services.speech_to_text import (
+    FakeSpeechToTextService,
     NullSpeechToTextService,
     SpeechToTextService,
     TranscriptionResult,
@@ -91,6 +95,9 @@ class TestSpeechToTextIntegration(unittest.TestCase):
         ServiceRegistry._reset_instance()
         ActionManager._reset_instance()
         MediaService._reset_instance()
+        TaskManager._reset_instance()
+        ModelManager._reset_instance()
+        WorkerManager._reset_instance()
         self._temp_dir = tempfile.TemporaryDirectory()
         self._config_path = Path(self._temp_dir.name) / "config.json"
         self._logs_dir = Path(self._temp_dir.name) / "logs"
@@ -101,10 +108,13 @@ class TestSpeechToTextIntegration(unittest.TestCase):
         ServiceRegistry._reset_instance()
         ActionManager._reset_instance()
         MediaService._reset_instance()
+        TaskManager._reset_instance()
+        ModelManager._reset_instance()
+        WorkerManager._reset_instance()
         self._temp_dir.cleanup()
 
     def test_service_registered_in_application_context(self) -> None:
-        """ApplicationContext enregistre un NullSpeechToTextService."""
+        """ApplicationContext enregistre FakeSpeechToTextService par défaut."""
         context = ApplicationContext(
             config_path=self._config_path,
             logs_dir=self._logs_dir,
@@ -112,7 +122,7 @@ class TestSpeechToTextIntegration(unittest.TestCase):
 
         self.assertIsInstance(
             context.speech_to_text_service,
-            NullSpeechToTextService,
+            FakeSpeechToTextService,
         )
         self.assertIs(
             context.service_registry.get("speech_to_text_service"),

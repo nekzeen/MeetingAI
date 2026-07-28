@@ -97,13 +97,16 @@ class Workspace(QWidget):
         return column
 
     def _connect_controller(self, media_controller: MediaController | None) -> None:
-        """Connecte le signal ``media_loaded`` au widget d'information."""
+        """Connecte les signaux du contrôleur aux widgets concernés."""
         if media_controller is None:
             try:
                 media_controller = ServiceRegistry().get("media_controller")
             except KeyError:
                 return
         media_controller.media_loaded.connect(self._info_widget.set_media)
+        media_controller.transcription_ready.connect(
+            self._transcript_widget.set_transcription
+        )
 
     def layout(self) -> QHBoxLayout:
         """Retourne le layout principal du workspace.

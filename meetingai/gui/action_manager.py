@@ -46,6 +46,7 @@ class ActionManager:
         self.open_action = QAction("Ouvrir", self._parent)
         self.save_action = QAction("Enregistrer", self._parent)
         self.quit_action = QAction("Quitter", self._parent)
+        self.transcribe_action = QAction("Transcrire", self._parent)
         self.preferences_action = QAction("Préférences", self._parent)
         self.about_action = QAction("À propos", self._parent)
 
@@ -61,6 +62,7 @@ class ActionManager:
             "open": self.open_action,
             "save": self.save_action,
             "quit": self.quit_action,
+            "transcribe": self.transcribe_action,
             "preferences": self.preferences_action,
             "about": self.about_action,
         }
@@ -73,6 +75,14 @@ class ActionManager:
                 d'un fichier média.
         """
         self.open_action.triggered.connect(controller.open_media)
+
+    def connect_transcribe(self, controller: MediaController) -> None:
+        """Connecte l'action ``Transcrire`` au contrôleur média.
+
+        Args:
+            controller: Contrôleur chargé du lancement de la transcription.
+        """
+        self.transcribe_action.triggered.connect(controller.transcribe_current_media)
 
     @classmethod
     def _reset_instance(cls) -> None:
