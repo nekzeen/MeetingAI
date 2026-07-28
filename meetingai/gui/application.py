@@ -2,14 +2,15 @@
 
 from PySide6.QtWidgets import QApplication
 
+from meetingai.core.application_context import ApplicationContext
 from meetingai.gui.main_window import MainWindow
 
 
 class MeetingAIApplication(QApplication):
     """Point d'entrée de l'application graphique MeetingAI.
 
-    Configure les métadonnées de l'application et affiche la fenêtre
-    principale.
+    Configure les métadonnées de l'application, crée le contexte applicatif
+    racine et affiche la fenêtre principale.
     """
 
     def __init__(self) -> None:
@@ -19,5 +20,6 @@ class MeetingAIApplication(QApplication):
         self.setOrganizationName("Gaël Morvan")
         self.setOrganizationDomain("github.com/nekzeen")
 
+        self._context = ApplicationContext()
         self._main_window = MainWindow()
         self._main_window.show()

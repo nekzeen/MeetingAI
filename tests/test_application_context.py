@@ -1,0 +1,98 @@
+"""Tests du contexte applicatif de MeetingAI."""
+
+import tempfile
+import unittest
+from pathlib import Path
+
+from PySide6.QtWidgets import QApplication
+
+from meetingai.config.config_manager import ConfigManager
+from meetingai.core.application_context import ApplicationContext
+from meetingai.core.service_registry import ServiceRegistry
+from meetingai.gui.action_manager import ActionManager
+from meetingai.logging.logger_manager import LoggerManager
+
+
+class TestApplicationContext(unittest.TestCase):
+    """Tests du contexte applicatif."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Crée l'application Qt unique si nécessaire."""
+        cls.app = QApplication.instance() or QApplication([])
+
+    def setUp(self) -> None:
+        """Réinitialise les singletons et prépare un répertoire temporaire."""
+        LoggerManager._reset_instance()
+        ServiceRegistry._reset_instance()
+        ActionManager._reset_instance()
+        self._temp_dir = tempfile.TemporaryDirectory()
+        self._config_path = Path(self._temp_dir.name) / "config.json"
+        self._logs_dir = Path(self._temp_dir.name) / "logs"
+
+    def tearDown(self) -> None:
+        """Réinitialise les singletons et nettoie le répertoire temporaire."""
+        LoggerManager._reset_instance()
+        ServiceRegistry._reset_instance()
+        ActionManager._reset_instance()
+        self._temp_dir.cleanup()
+
+    def test_creates_config_manager(self) -> None:
+        """Le contexte crée une instance de ConfigManager."""
+        context = ApplicationContext(config_path=self._config_path)
+
+        self.assertIsInstance(context.config, ConfigManager)
+
+    def test_creates_logger_manager(self) -> None:
+        """Le contexte crée une instance de LoggerManager."""
+        context = ApplicationContext(config_path=self._config_path)
+
+        self.assertIsInstance(context.logger, LoggerManager)
+
+    def test_creates_service_registry(self) -> None:
+        """Le contexte crée une instance de ServiceRegistry."""
+        context = ApplicationContext(config_path=self._config_path)
+
+        self.assertIsInstance(context.service_registry, ServiceRegistry)
+
+    def test_creates_action_manager(self) -> None:
+        """Le contexte crée une instance de ActionManager."""
+        context = ApplicationContext(config_path=self._config_path)
+
+        self.assertIsInstance(context.action_manager, ActionManager)
+
+    def test_registers_components_in_service_registry(self) -> None:
+        """Les composants centraux sont enregistrés dans ServiceRegistry."""
+        context = ApplicationContext(config_path=self._config_path)
+
+        self.assertIs(
+            context.service_registry.get("config_manager"),
+            context.config,
+        )
+        self.assertIs(
+            context.service_registry.get("logger_manager"),
+            context.logger,
+        )
+        self.assertIs(
+            context.service_registry.get("action_manager"),
+            context.action_manager,
+        )
+
+    def test_context_exposes_single_instances(self) -> None:
+        """Le contexte expose toujours les mêmes instances de ses composants."""
+        context = ApplicationContext(config_path=self._config_path)
+
+        self.assertIs(context.config, context.config)
+        self.assertIs(context.logger, context.logger)
+        self.assertIs(context.service_registry, context.service_registry)
+        self.assertIs(context.action_manager, context.action_manager)
+
+    def test_get_service_uses_registry(self) -> None:
+        """``get_service`` retourne un service enregistré."""
+        context = ApplicationContext(config_path=self._config_path)
+
+        self.assertIs(context.get_service("config_manager"), context.config)
+
+
+if __name__ == "__main__":
+    unittest.main()
