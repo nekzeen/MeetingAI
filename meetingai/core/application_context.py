@@ -19,7 +19,9 @@ from meetingai.services.model_manager import ModelManager
 from meetingai.gui.action_manager import ActionManager
 from meetingai.logging.logger_manager import LoggerManager
 from meetingai.services.media_service import MediaService
-from meetingai.services.speech_to_text import FakeSpeechToTextService
+from meetingai.services.speech_to_text.speech_to_text_factory import (
+    SpeechToTextFactory,
+)
 
 
 class ApplicationContext:
@@ -51,8 +53,9 @@ class ApplicationContext:
         self.action_manager: ActionManager = ActionManager()
         self.media_service: MediaService = MediaService()
         self.task_manager: TaskManager = TaskManager()
-        self.speech_to_text_service: FakeSpeechToTextService = (
-            FakeSpeechToTextService()
+        self.speech_to_text_factory: SpeechToTextFactory = SpeechToTextFactory()
+        self.speech_to_text_service = self.speech_to_text_factory.create(
+            self.config.speech_to_text
         )
         self.media_controller: MediaController = MediaController(
             media_service=self.media_service,

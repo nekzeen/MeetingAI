@@ -11,6 +11,10 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from meetingai.config.speech_to_text_configuration import (
+    SpeechToTextConfiguration,
+)
+
 
 @dataclass
 class ApplicationConfig:
@@ -73,6 +77,7 @@ class ConfigManager:
         return {
             "application": asdict(ApplicationConfig()),
             "transcription": asdict(TranscriptionConfig()),
+            "speech_to_text": asdict(SpeechToTextConfiguration()),
             "export": asdict(ExportConfig()),
             "logging": asdict(LoggingConfig()),
         }
@@ -171,6 +176,15 @@ class ConfigManager:
             target = target[part]
 
         target[parts[-1]] = value
+
+    @property
+    def speech_to_text(self) -> SpeechToTextConfiguration:
+        """Retourne la configuration Speech-To-Text typée.
+
+        Returns:
+            Instance ``SpeechToTextConfiguration`` extraite de la configuration.
+        """
+        return SpeechToTextConfiguration(**self._config["speech_to_text"])
 
     def reset_to_defaults(self) -> None:
         """Réinitialise la configuration aux valeurs par défaut."""
