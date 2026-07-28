@@ -11,6 +11,7 @@ from meetingai.core.application_context import ApplicationContext
 from meetingai.core.service_registry import ServiceRegistry
 from meetingai.gui.action_manager import ActionManager
 from meetingai.logging.logger_manager import LoggerManager
+from meetingai.services.media_service import MediaService
 
 
 class TestApplicationContext(unittest.TestCase):
@@ -26,6 +27,7 @@ class TestApplicationContext(unittest.TestCase):
         LoggerManager._reset_instance()
         ServiceRegistry._reset_instance()
         ActionManager._reset_instance()
+        MediaService._reset_instance()
         self._temp_dir = tempfile.TemporaryDirectory()
         self._config_path = Path(self._temp_dir.name) / "config.json"
         self._logs_dir = Path(self._temp_dir.name) / "logs"
@@ -35,6 +37,7 @@ class TestApplicationContext(unittest.TestCase):
         LoggerManager._reset_instance()
         ServiceRegistry._reset_instance()
         ActionManager._reset_instance()
+        MediaService._reset_instance()
         self._temp_dir.cleanup()
 
     def test_creates_config_manager(self) -> None:
@@ -92,6 +95,21 @@ class TestApplicationContext(unittest.TestCase):
         context = ApplicationContext(config_path=self._config_path)
 
         self.assertIs(context.get_service("config_manager"), context.config)
+
+    def test_creates_media_service(self) -> None:
+        """Le contexte crée une instance de MediaService."""
+        context = ApplicationContext(config_path=self._config_path)
+
+        self.assertIsInstance(context.media_service, MediaService)
+
+    def test_registers_media_service_in_service_registry(self) -> None:
+        """MediaService est enregistré dans ServiceRegistry."""
+        context = ApplicationContext(config_path=self._config_path)
+
+        self.assertIs(
+            context.service_registry.get("media_service"),
+            context.media_service,
+        )
 
 
 if __name__ == "__main__":

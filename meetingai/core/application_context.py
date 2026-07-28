@@ -14,6 +14,7 @@ from meetingai.config.config_manager import ConfigManager
 from meetingai.core.service_registry import ServiceRegistry
 from meetingai.gui.action_manager import ActionManager
 from meetingai.logging.logger_manager import LoggerManager
+from meetingai.services.media_service import MediaService
 
 
 class ApplicationContext:
@@ -43,6 +44,7 @@ class ApplicationContext:
         )
         self.service_registry: ServiceRegistry = ServiceRegistry()
         self.action_manager: ActionManager = ActionManager()
+        self.media_service: MediaService = MediaService()
         self._register_components()
 
     def _register_components(self) -> None:
@@ -50,6 +52,7 @@ class ApplicationContext:
         self.service_registry.register("config_manager", self.config)
         self.service_registry.register("logger_manager", self.logger)
         self.service_registry.register("action_manager", self.action_manager)
+        self.service_registry.register("media_service", self.media_service)
 
     def get_service(self, name: str) -> Any:
         """Retourne un service enregistré dans le registre.
