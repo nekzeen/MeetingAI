@@ -7,6 +7,9 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 
 from meetingai.config.config_manager import ConfigManager
+from meetingai.controllers.transcription_controller import (
+    TranscriptionController,
+)
 from meetingai.core.application_context import ApplicationContext
 from meetingai.core.service_registry import ServiceRegistry
 from meetingai.gui.action_manager import ActionManager
@@ -109,6 +112,23 @@ class TestApplicationContext(unittest.TestCase):
         self.assertIs(
             context.service_registry.get("media_service"),
             context.media_service,
+        )
+
+    def test_creates_transcription_controller(self) -> None:
+        """Le contexte crée un TranscriptionController."""
+        context = ApplicationContext(config_path=self._config_path)
+
+        self.assertIsInstance(
+            context.transcription_controller, TranscriptionController
+        )
+
+    def test_registers_transcription_controller_in_service_registry(self) -> None:
+        """TranscriptionController est enregistré dans ServiceRegistry."""
+        context = ApplicationContext(config_path=self._config_path)
+
+        self.assertIs(
+            context.service_registry.get("transcription_controller"),
+            context.transcription_controller,
         )
 
 

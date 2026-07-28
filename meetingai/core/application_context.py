@@ -12,6 +12,7 @@ from typing import Any
 
 from meetingai.config.config_manager import ConfigManager
 from meetingai.controllers.media_controller import MediaController
+from meetingai.controllers.transcription_controller import TranscriptionController
 from meetingai.core.service_registry import ServiceRegistry
 from meetingai.core.task_manager import TaskManager
 from meetingai.core.worker_manager import WorkerManager
@@ -60,11 +61,17 @@ class ApplicationContext:
         self.media_controller: MediaController = MediaController(
             media_service=self.media_service,
             logger_manager=self.logger,
-            speech_to_text_service=self.speech_to_text_service,
-            task_manager=self.task_manager,
         )
         self.model_manager: ModelManager = ModelManager()
         self.worker_manager: WorkerManager = WorkerManager()
+        self.transcription_controller: TranscriptionController = (
+            TranscriptionController(
+                speech_to_text_service=self.speech_to_text_service,
+                task_manager=self.task_manager,
+                worker_manager=self.worker_manager,
+                logger_manager=self.logger,
+            )
+        )
         self._register_components()
 
     def _register_components(self) -> None:
@@ -74,6 +81,9 @@ class ApplicationContext:
         self.service_registry.register("action_manager", self.action_manager)
         self.service_registry.register("media_service", self.media_service)
         self.service_registry.register("media_controller", self.media_controller)
+        self.service_registry.register(
+            "transcription_controller", self.transcription_controller
+        )
         self.service_registry.register("task_manager", self.task_manager)
         self.service_registry.register(
             "speech_to_text_service",

@@ -48,14 +48,30 @@ class MainWindow(QMainWindow):
 
     def _setup_ui(self) -> None:
         """Construit le squelette de l'interface graphique."""
-        self.setCentralWidget(Workspace(self))
-        self._action_manager = self._context.action_manager if self._context else ActionManager(self)
+        self._action_manager = (
+            self._context.action_manager if self._context else ActionManager(self)
+        )
+        self.setCentralWidget(
+            Workspace(
+                self,
+                media_controller=self._context.media_controller
+                if self._context
+                else None,
+                transcription_controller=self._context.transcription_controller
+                if self._context
+                else None,
+            )
+        )
         self._setup_menu_bar()
         self._setup_tool_bar()
         self.setStatusBar(QStatusBar(self))
         if self._context is not None:
             self._action_manager.connect_open_media(self._context.media_controller)
-            self._action_manager.connect_transcribe(self._context.media_controller)
+            self._action_manager.connect_transcribe(
+                lambda: self._context.transcription_controller.transcribe(
+                    self._context.media_controller.current_media
+                )
+            )
 
     def _setup_menu_bar(self) -> None:
         """Construit la barre de menus à partir de l'ActionManager."""

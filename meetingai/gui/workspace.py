@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from meetingai.controllers.media_controller import MediaController
+from meetingai.controllers.transcription_controller import TranscriptionController
 from meetingai.core.service_registry import ServiceRegistry
 from meetingai.gui.widgets.history_widget import HistoryWidget
 from meetingai.gui.widgets.media_information_widget import MediaInformationWidget
@@ -38,19 +39,22 @@ class Workspace(QWidget):
         self,
         parent: QWidget | None = None,
         media_controller: MediaController | None = None,
+        transcription_controller: TranscriptionController | None = None,
     ) -> None:
         """Initialise le workspace et ses panneaux.
 
         Args:
             parent: Widget parent éventuel.
             media_controller: Contrôleur média dont le signal
-                ``media_loaded`` mettra à jour le widget d'information. S'il
-                n'est pas fourni, le workspace tente de le récupérer depuis le
-                ``ServiceRegistry``.
+                ``media_loaded`` mettra à jour le widget d'information.
+            transcription_controller: Contrôleur de transcription dont le
+                signal ``transcription_ready`` mettra à jour le widget de
+                transcription. S'ils ne sont pas fournis, le workspace tente de
+                les récupérer depuis le ``ServiceRegistry``.
         """
         super().__init__(parent)
         self._setup_ui()
-        self._connect_controller(media_controller)
+        self._connect_controllers(media_controller, transcription_controller)
 
     def _setup_ui(self) -> None:
         """Crée le splitter horizontal et organise les panneaux."""
@@ -96,15 +100,27 @@ class Workspace(QWidget):
             column_layout.addWidget(widget)
         return column
 
-    def _connect_controller(self, media_controller: MediaController | None) -> None:
-        """Connecte les signaux du contrôleur aux widgets concernés."""
+    def _connect_controllers(
+        self,
+        media_controller: MediaController | None,
+        transcription_controller: TranscriptionController | None,
+    ) -> None:
+        """Connecte les signaux des contrôleurs aux widgets concernés."""
         if media_controller is None:
             try:
                 media_controller = ServiceRegistry().get("media_controller")
             except KeyError:
                 return
         media_controller.media_loaded.connect(self._info_widget.set_media)
-        media_controller.transcription_ready.connect(
+
+        if transcription_controller is None:
+            try:
+                transcription_controller = ServiceRegistry().get(
+                    "transcription_controller"
+                )
+            except KeyError:
+                return
+        transcription_controller.transcription_ready.connect(
             self._transcript_widget.set_transcription
         )
 

@@ -68,9 +68,14 @@ class TestTranscriptWidgetDisplay(unittest.TestCase):
 
 
 class _FakeMediaController(QObject):
-    """Contrôleur factice émettant media_loaded et transcription_ready."""
+    """Contrôleur factice émettant media_loaded."""
 
     media_loaded = Signal(object)
+
+
+class _FakeTranscriptionController(QObject):
+    """Contrôleur factice émettant transcription_ready."""
+
     transcription_ready = Signal(object)
 
 
@@ -86,8 +91,12 @@ class TestWorkspaceTranscriptionSignal(unittest.TestCase):
         """transcription_ready met à jour le TranscriptWidget."""
         from meetingai.gui.workspace import Workspace
 
-        controller = _FakeMediaController()
-        workspace = Workspace(media_controller=controller)
+        media_controller = _FakeMediaController()
+        transcription_controller = _FakeTranscriptionController()
+        workspace = Workspace(
+            media_controller=media_controller,
+            transcription_controller=transcription_controller,
+        )
         result = TranscriptionResult(
             text="Cette transcription est simulée.",
             language="fr",
@@ -97,7 +106,7 @@ class TestWorkspaceTranscriptionSignal(unittest.TestCase):
             metadata={},
         )
 
-        controller.transcription_ready.emit(result)
+        transcription_controller.transcription_ready.emit(result)
 
         labels = workspace.transcript_widget.findChildren(QLabel)
         texts = [label.text() for label in labels]

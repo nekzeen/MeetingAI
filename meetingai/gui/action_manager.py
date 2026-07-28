@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import ClassVar
 
 from PySide6.QtGui import QAction
@@ -76,13 +77,14 @@ class ActionManager:
         """
         self.open_action.triggered.connect(controller.open_media)
 
-    def connect_transcribe(self, controller: MediaController) -> None:
-        """Connecte l'action ``Transcrire`` au contrôleur média.
+    def connect_transcribe(self, slot: Callable[[], None]) -> None:
+        """Connecte l'action ``Transcrire`` au slot fourni.
 
         Args:
-            controller: Contrôleur chargé du lancement de la transcription.
+            slot: Fonction sans argument appelée lors du déclenchement de
+                l'action.
         """
-        self.transcribe_action.triggered.connect(controller.transcribe_current_media)
+        self.transcribe_action.triggered.connect(slot)
 
     @classmethod
     def _reset_instance(cls) -> None:
