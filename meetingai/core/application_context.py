@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from meetingai.config.config_manager import ConfigManager
+from meetingai.controllers.media_controller import MediaController
 from meetingai.core.service_registry import ServiceRegistry
 from meetingai.gui.action_manager import ActionManager
 from meetingai.logging.logger_manager import LoggerManager
@@ -45,6 +46,10 @@ class ApplicationContext:
         self.service_registry: ServiceRegistry = ServiceRegistry()
         self.action_manager: ActionManager = ActionManager()
         self.media_service: MediaService = MediaService()
+        self.media_controller: MediaController = MediaController(
+            media_service=self.media_service,
+            logger_manager=self.logger,
+        )
         self._register_components()
 
     def _register_components(self) -> None:
@@ -53,6 +58,7 @@ class ApplicationContext:
         self.service_registry.register("logger_manager", self.logger)
         self.service_registry.register("action_manager", self.action_manager)
         self.service_registry.register("media_service", self.media_service)
+        self.service_registry.register("media_controller", self.media_controller)
 
     def get_service(self, name: str) -> Any:
         """Retourne un service enregistré dans le registre.

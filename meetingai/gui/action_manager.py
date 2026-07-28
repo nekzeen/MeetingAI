@@ -7,6 +7,8 @@ from typing import ClassVar
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QWidget
 
+from meetingai.controllers.media_controller import MediaController
+
 
 class ActionManager:
     """Crée et expose les QAction partagées de l'application.
@@ -62,6 +64,15 @@ class ActionManager:
             "preferences": self.preferences_action,
             "about": self.about_action,
         }
+
+    def connect_open_media(self, controller: MediaController) -> None:
+        """Connecte l'action ``Ouvrir`` au contrôleur média.
+
+        Args:
+            controller: Contrôleur chargé de la sélection et de l'ouverture
+                d'un fichier média.
+        """
+        self.open_action.triggered.connect(controller.open_media)
 
     @classmethod
     def _reset_instance(cls) -> None:

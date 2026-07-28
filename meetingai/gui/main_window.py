@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QToolBar,
 )
 
+from meetingai.core.application_context import ApplicationContext
 from meetingai.gui.action_manager import ActionManager
 from meetingai.gui.workspace import Workspace
 
@@ -27,21 +28,20 @@ class MainWindow(QMainWindow):
     DEFAULT_WIDTH: int = 1200
     DEFAULT_HEIGHT: int = 800
 
-    _MENU_TITLES: tuple[str, ...] = (
-        "Fichier",
-        "Édition",
-        "Outils",
-        "Affichage",
-        "Aide",
-    )
-
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        context: ApplicationContext | None = None,
+    ) -> None:
         """Initialise la fenêtre principale.
 
         Args:
             parent: Widget parent éventuel.
+            context: Contexte applicatif racine. S'il est fourni, la fenêtre
+                assemble les composants à partir de celui-ci.
         """
         super().__init__(parent)
+        self._context = context
         self.setWindowTitle("MeetingAI")
         self._setup_ui()
         self._center_on_screen()
@@ -49,10 +49,12 @@ class MainWindow(QMainWindow):
     def _setup_ui(self) -> None:
         """Construit le squelette de l'interface graphique."""
         self.setCentralWidget(Workspace(self))
-        self._action_manager = ActionManager(self)
+        self._action_manager = self._context.action_manager if self._context else ActionManager(self)
         self._setup_menu_bar()
         self._setup_tool_bar()
         self.setStatusBar(QStatusBar(self))
+        if self._context is not None:
+            self._action_manager.connect_open_media(self._context.media_controller)
 
     def _setup_menu_bar(self) -> None:
         """Construit la barre de menus à partir de l'ActionManager."""

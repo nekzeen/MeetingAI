@@ -21,5 +21,5 @@ class MeetingAIApplication(QApplication):
         self.setOrganizationDomain("github.com/nekzeen")
 
         self._context = ApplicationContext()
-        self._main_window = MainWindow()
+        self._main_window = MainWindow(context=self._context)
         self._main_window.show()
