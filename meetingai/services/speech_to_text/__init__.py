@@ -3,6 +3,9 @@
 from meetingai.services.speech_to_text.fake_speech_to_text_service import (
     FakeSpeechToTextService,
 )
+from meetingai.services.speech_to_text.faster_whisper_service import (
+    FasterWhisperService,
+)
 from meetingai.services.speech_to_text.speech_to_text_service import (
     NullSpeechToTextService,
     SpeechToTextService,
@@ -15,5 +18,6 @@ __all__ = [
     "SpeechToTextService",
     "NullSpeechToTextService",
     "FakeSpeechToTextService",
+    "FasterWhisperService",
     "TranscriptionResult",
 ]
