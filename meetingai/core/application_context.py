@@ -13,6 +13,7 @@ from typing import Any
 from meetingai.config.config_manager import ConfigManager
 from meetingai.controllers.media_controller import MediaController
 from meetingai.core.service_registry import ServiceRegistry
+from meetingai.core.task_manager import TaskManager
 from meetingai.gui.action_manager import ActionManager
 from meetingai.logging.logger_manager import LoggerManager
 from meetingai.services.media_service import MediaService
@@ -50,6 +51,7 @@ class ApplicationContext:
             media_service=self.media_service,
             logger_manager=self.logger,
         )
+        self.task_manager: TaskManager = TaskManager()
         self._register_components()
 
     def _register_components(self) -> None:
@@ -59,6 +61,7 @@ class ApplicationContext:
         self.service_registry.register("action_manager", self.action_manager)
         self.service_registry.register("media_service", self.media_service)
         self.service_registry.register("media_controller", self.media_controller)
+        self.service_registry.register("task_manager", self.task_manager)
 
     def get_service(self, name: str) -> Any:
         """Retourne un service enregistré dans le registre.
