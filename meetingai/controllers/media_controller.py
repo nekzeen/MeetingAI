@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from meetingai.logging.logger_manager import LoggerManager
@@ -9,12 +10,13 @@ from meetingai.models.media_file import MediaFile
 from meetingai.services.media_service import MediaService
 
 
-class MediaController:
+class MediaController(QObject):
     """Orchestre la sélection d'un fichier média et son chargement.
 
     Ce contrôleur affiche une boîte de dialogue de sélection, valide le fichier
     via ``MediaService`` et conserve le média courant. Il journalise les
-    opérations et affiche les erreurs utilisateur à l'aide de ``QMessageBox``.
+    opérations, affiche les erreurs utilisateur à l'aide de ``QMessageBox`` et
+    émet un signal ``media_loaded`` après un chargement réussi.
 
     Aucune logique de traitement audio n'est implémentée ici.
 
@@ -24,6 +26,8 @@ class MediaController:
         parent: Widget parent optionnel pour les boîtes de dialogue.
     """
 
+    media_loaded = Signal(object)
+
     def __init__(
         self,
         media_service: MediaService,
@@ -31,6 +35,7 @@ class MediaController:
         parent: object | None = None,
     ) -> None:
         """Initialise le contrôleur média."""
+        super().__init__(parent)
         self._media_service = media_service
         self._logger = logger_manager.get_logger(__name__)
         self._parent = parent
@@ -60,6 +65,7 @@ class MediaController:
         try:
             self._current_media = self._media_service.open(file_path)
             self._logger.info("Média ouvert : %s", self._current_media.path)
+            self.media_loaded.emit(self._current_media)
         except (FileNotFoundError, IsADirectoryError, ValueError) as exc:
             self._logger.error("Échec de l'ouverture du média : %s", exc)
             QMessageBox.critical(
