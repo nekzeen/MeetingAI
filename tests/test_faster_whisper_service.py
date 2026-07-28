@@ -1,6 +1,8 @@
 """Tests de l'implémentation FasterWhisperService."""
 
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from meetingai.core.task import Task
@@ -70,24 +72,26 @@ class TestFasterWhisperService(unittest.TestCase):
         new=MagicMock(),
     )
     def test_load_model_uses_local_files_only(self) -> None:
-        """load_model demande explicitement des fichiers locaux."""
-        service = FasterWhisperService(model_size="tiny")
+        """load_model charge le modèle depuis le répertoire configuré."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model_dir = Path(tmp_dir) / "tiny"
+            model_dir.mkdir()
+            service = FasterWhisperService(
+                model_size="tiny",
+                models_directory=tmp_dir,
+            )
 
-        service.load_model()
+            service.load_model()
 
-        self.assertIsNotNone(service._model)
-        mock_module = (
-            FasterWhisperService.__module__
-        )
-        # Récupère le mock via le module patché
-        from meetingai.services.speech_to_text import faster_whisper_service
+            self.assertIsNotNone(service._model)
+            from meetingai.services.speech_to_text import faster_whisper_service
 
-        faster_whisper_service._FASTER_WHISPER.WhisperModel.assert_called_once_with(
-            "tiny",
-            device="cpu",
-            compute_type="int8",
-            local_files_only=True,
-        )
+            faster_whisper_service._FASTER_WHISPER.WhisperModel.assert_called_once_with(
+                str(model_dir),
+                device="cpu",
+                compute_type="int8",
+                local_files_only=True,
+            )
 
 
 if __name__ == "__main__":

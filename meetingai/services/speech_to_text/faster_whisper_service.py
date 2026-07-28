@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import time
 import uuid
+from pathlib import Path
 from typing import Any
 
 from meetingai.core.task import Task
@@ -26,20 +28,21 @@ class FasterWhisperService(SpeechToTextService):
     """Implémentation de ``SpeechToTextService`` utilisant faster-whisper.
 
     Cette classe encapsule le moteur de transcription ``faster-whisper``. Elle
-    est conçue pour être substituée à ``FakeSpeechToTextService`` dans
-    ``ApplicationContext`` une fois un modèle disponible.
+    charge un modèle présent sur le disque local, transcrit un média et retourne
+    un ``TranscriptionResult`` complet.
 
-    Pour cette story, le service vérifie la présence de la bibliothèque et
-    charge le modèle uniquement sur demande. Aucun téléchargement automatique
-    n'est réalisé.
+    Aucun téléchargement automatique n'est réalisé : ``local_files_only`` est
+    systématiquement activé. Le modèle est recherché dans ``models_directory``.
 
     Args:
-        model_size: Taille du modèle Whisper à utiliser (ex. ``small``).
+        model_size: Taille ou chemin du modèle Whisper à utiliser.
+        models_directory: Répertoire racine contenant les modèles locaux.
         device: Périphérique d'exécution (``cpu`` ou ``cuda``).
         compute_type: Type de calcul (``int8``, ``float16``, etc.).
     """
 
     _DEFAULT_MODEL_SIZE: str = "small"
+    _DEFAULT_MODELS_DIRECTORY: Path = Path("models")
     _SUPPORTED_LANGUAGES: tuple[str, ...] = (
         "af",
         "am",
@@ -145,30 +148,46 @@ class FasterWhisperService(SpeechToTextService):
     def __init__(
         self,
         model_size: str | None = None,
+        models_directory: str | Path | None = None,
         device: str = "cpu",
         compute_type: str = "int8",
     ) -> None:
         """Initialise le service avec la configuration du modèle."""
         self._model_size = model_size or self._DEFAULT_MODEL_SIZE
+        self._models_directory = (
+            Path(models_directory)
+            if models_directory is not None
+            else self._DEFAULT_MODELS_DIRECTORY
+        )
         self._device = device
         self._compute_type = compute_type
         self._model: Any | None = None
+
+    def _resolve_model_path(self) -> Path:
+        """Retourne le chemin local attendu pour le modèle configuré."""
+        return self._models_directory / self._model_size
 
     def load_model(self) -> None:
         """Charge le modèle faster-whisper depuis le disque local.
 
         Raises:
-            RuntimeError: Si ``faster-whisper`` n'est pas installé ou si le
-                modèle local n'est pas disponible.
+            RuntimeError: Si ``faster-whisper`` n'est pas installé, si le
+                répertoire du modèle n'existe pas ou si le chargement échoue.
         """
         if _FASTER_WHISPER is None:
             raise RuntimeError(
                 "La bibliothèque faster-whisper n'est pas installée."
             )
 
+        model_path = self._resolve_model_path()
+        if not model_path.exists():
+            raise RuntimeError(
+                f"Le modèle faster-whisper est introuvable : {model_path}"
+            )
+
         try:
             self._model = _FASTER_WHISPER.WhisperModel(
-                self._model_size,
+                str(model_path),
                 device=self._device,
                 compute_type=self._compute_type,
                 local_files_only=True,
@@ -179,30 +198,56 @@ class FasterWhisperService(SpeechToTextService):
             ) from exc
 
     def transcribe(self, media: MediaFile, task: Task) -> TranscriptionResult:
-        """Prépare la transcription d'un média.
-
-        Pour cette story, la méthode retourne une erreur explicite si le
-        modèle n'a pas été chargé. La transcription réelle sera implémentée
-        dans une mission ultérieure.
+        """Transcrit le média avec faster-whisper.
 
         Args:
             media: Média à transcrire.
-            task: Tâche associée.
+            task: Tâche associée. Son état sera mis à jour avec la progression
+                lorsque celle-ci sera implémentée ; actuellement elle est
+                simplement marquée comme terminée en cas de succès.
 
         Returns:
-            Résultat de la transcription (futur).
+            Résultat complet de la transcription.
 
         Raises:
-            RuntimeError: Si le modèle n'est pas chargé.
+            RuntimeError: Si le modèle n'est pas chargé ou si la transcription
+                échoue.
         """
         if self._model is None:
             raise RuntimeError(
                 "Le modèle faster-whisper n'est pas chargé. "
                 "Appelez load_model() après avoir vérifié sa disponibilité."
             )
-        raise NotImplementedError(
-            "La transcription réelle sera implémentée une fois le modèle validé."
-        )
+
+        start_time = time.perf_counter()
+        try:
+            segments, info = self._model.transcribe(
+                str(media.path),
+                beam_size=5,
+                condition_on_previous_text=False,
+            )
+            text_parts = [segment.text for segment in segments]
+            full_text = " ".join(text_parts).strip()
+            processing_time = time.perf_counter() - start_time
+
+            task.update_progress(100)
+
+            return TranscriptionResult(
+                text=full_text,
+                language=info.language or "unknown",
+                duration=getattr(info, "duration", 0.0),
+                model=self._model_size,
+                processing_time=processing_time,
+                metadata={
+                    "language_probability": getattr(
+                        info, "language_probability", None
+                    ),
+                },
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Échec de la transcription faster-whisper : {exc}"
+            ) from exc
 
     def cancel(self, task_id: uuid.UUID) -> None:
         """Lève NotImplementedError car l'annulation n'est pas supportée."""
