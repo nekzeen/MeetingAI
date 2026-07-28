@@ -5,6 +5,8 @@ from __future__ import annotations
 import uuid
 from typing import ClassVar
 
+from typing import Any
+
 from meetingai.core.worker import Worker
 
 
@@ -33,11 +35,12 @@ class WorkerManager:
         WorkerManager._initialized = True
         self._workers: dict[uuid.UUID, Worker] = {}
 
-    def register(self, worker: Worker) -> None:
+    def register(self, worker: Any) -> None:
         """Enregistre un Worker dans le gestionnaire.
 
         Args:
-            worker: Worker à enregistrer.
+            worker: Worker à enregistrer. Doit posséder un attribut ``task``
+                avec un ``id``.
         """
         self._workers[worker.task.id] = worker
 
@@ -57,7 +60,7 @@ class WorkerManager:
             raise KeyError(f"Worker non enregistré : {worker_id}")
         return self._workers[worker_id]
 
-    def list_workers(self) -> list[Worker]:
+    def list_workers(self) -> list[Any]:
         """Retourne la liste de tous les Workers enregistrés.
 
         Returns:

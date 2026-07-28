@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import uuid
+
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QMessageBox
 
 from meetingai.core.task import Task, TaskStatus
 from meetingai.core.task_manager import TaskManager
+from meetingai.core.transcription_worker import TranscriptionWorker
 from meetingai.core.worker_manager import WorkerManager
 from meetingai.logging.logger_manager import LoggerManager
 from meetingai.models.media_file import MediaFile
@@ -19,21 +22,19 @@ from meetingai.services.speech_to_text.transcription_result import (
 
 
 class TranscriptionController(QObject):
-    """Orchestre les transcriptions en encapsulant le service Speech-To-Text.
+    """Orchestre les transcriptions de manière asynchrone.
 
     Ce contrôleur est responsable de la création et du suivi de la tâche de
-    transcription, de l'appel au ``SpeechToTextService`` et de l'émission des
-    signaux de progression et de résultat.
+    transcription. Il délègue l'exécution à un ``TranscriptionWorker`` tournant
+    dans un ``QThread`` afin de ne pas bloquer l'interface graphique.
 
-    Les services restent synchrones ; l'exécution asynchrone via ``Worker`` ou
-    ``QThread`` sera introduite dans une future story sans modifier l'API
-    publique de ce contrôleur.
+    ``SpeechToTextService`` reste strictement synchrone : l'asynchronisme est
+    uniquement une préoccupation du contrôleur et du worker.
 
     Args:
         speech_to_text_service: Service de transcription à utiliser.
         task_manager: Gestionnaire de tâches.
-        worker_manager: Gestionnaire de workers, préparé pour les futures
-            exécutions asynchrones.
+        worker_manager: Gestionnaire de workers.
         logger_manager: Gestionnaire de logs.
         parent: Widget parent optionnel pour les boîtes de dialogue.
     """
@@ -42,6 +43,7 @@ class TranscriptionController(QObject):
     transcription_progress = Signal(int)
     transcription_ready = Signal(object)
     transcription_failed = Signal(str)
+    transcription_cancelled = Signal(object)
 
     def __init__(
         self,
@@ -58,9 +60,10 @@ class TranscriptionController(QObject):
         self._worker_manager = worker_manager
         self._logger = logger_manager.get_logger(__name__)
         self._parent = parent
+        self._active_workers: dict[uuid.UUID, TranscriptionWorker] = {}
 
     def transcribe(self, media: MediaFile | None) -> Task | None:
-        """Lance la transcription du média fourni.
+        """Lance la transcription du média fourni de façon asynchrone.
 
         Args:
             media: Média à transcrire. Si ``None``, un avertissement est affiché.
@@ -79,40 +82,99 @@ class TranscriptionController(QObject):
             return None
 
         task = self._task_manager.create_task("transcription")
+        task.status = TaskStatus.PENDING
         self.transcription_started.emit(task)
         self.transcription_progress.emit(0)
 
-        try:
-            task.status = TaskStatus.RUNNING
-            result: TranscriptionResult = self._speech_to_text_service.transcribe(
-                media,
-                task,
-            )
-        except Exception as exc:
-            task.status = TaskStatus.FAILED
-            task.error = str(exc)
-            self._logger.error("Échec de la transcription : %s", exc)
-            self.transcription_progress.emit(0)
-            self.transcription_failed.emit(str(exc))
-            return task
+        worker = TranscriptionWorker(
+            task=task,
+            speech_to_text_service=self._speech_to_text_service,
+            media=media,
+        )
 
-        task.status = TaskStatus.COMPLETED
-        task.result = result
-        self.transcription_progress.emit(100)
-        self._logger.info("Transcription terminée : %s", result.text)
-        self.transcription_ready.emit(result)
+        self._wire_worker_signals(worker, task)
+        self._active_workers[task.id] = worker
+        self._worker_manager.register(worker)
+
+        worker.start()
         return task
 
+    def _wire_worker_signals(
+        self,
+        worker: TranscriptionWorker,
+        task: Task,
+    ) -> None:
+        """Connecte les signaux du worker au contrôleur."""
+        worker.started.connect(
+            lambda: self._logger.info("Transcription démarrée : %s", task.id)
+        )
+        worker.progress.connect(self.transcription_progress.emit)
+        worker.finished.connect(
+            lambda result: self._on_worker_finished(worker, task, result)
+        )
+        worker.failed.connect(
+            lambda exc: self._on_worker_failed(worker, task, exc)
+        )
+        worker.cancelled.connect(
+            lambda: self._on_worker_cancelled(worker, task)
+        )
+
+    def _on_worker_finished(
+        self,
+        worker: TranscriptionWorker,
+        task: Task,
+        result: TranscriptionResult,
+    ) -> None:
+        """Gère la fin réussie d'une transcription."""
+        self._logger.info("Transcription terminée : %s", result.text)
+        self._cleanup_worker(worker, task)
+        self.transcription_progress.emit(100)
+        self.transcription_ready.emit(result)
+
+    def _on_worker_failed(
+        self,
+        worker: TranscriptionWorker,
+        task: Task,
+        exc: Exception,
+    ) -> None:
+        """Gère l'échec d'une transcription."""
+        self._logger.error("Échec de la transcription : %s", exc)
+        self._cleanup_worker(worker, task)
+        self.transcription_failed.emit(str(exc))
+
+    def _on_worker_cancelled(
+        self,
+        worker: TranscriptionWorker,
+        task: Task,
+    ) -> None:
+        """Gère l'annulation d'une transcription."""
+        self._logger.info("Transcription annulée : %s", task.id)
+        self._cleanup_worker(worker, task)
+        self.transcription_cancelled.emit(task)
+
+    def _cleanup_worker(
+        self,
+        worker: TranscriptionWorker,
+        task: Task,
+    ) -> None:
+        """Supprime le worker du registre actif et du WorkerManager."""
+        self._active_workers.pop(task.id, None)
+        try:
+            self._worker_manager.unregister(worker.task.id)
+        except KeyError:
+            pass
+
     def cancel(self, task: Task) -> None:
-        """Prépare l'annulation d'une transcription.
+        """Demande l'annulation d'une transcription en cours.
 
         Args:
             task: Tâche de transcription à annuler.
-
-        Raises:
-            NotImplementedError: L'annulation sera implémentée dans une future
-                story avec l'exécution asynchrone.
         """
-        raise NotImplementedError(
-            "L'annulation de transcription n'est pas encore supportée."
-        )
+        worker = self._active_workers.get(task.id)
+        if worker is not None:
+            worker.cancel()
+            self._logger.info(
+                "Demande d'annulation de la transcription : %s", task.id
+            )
+        else:
+            self._logger.warning("Aucun worker actif pour la tâche : %s", task.id)
