@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from meetingai.services.summarization.summary_profile import SummaryProfile
 from meetingai.services.summarization.summary_result import SummaryResult
 from meetingai.services.summarization.summarization_service import (
     SummarizationService,
@@ -22,16 +23,24 @@ class FakeSummarizationService(SummarizationService):
         """Le provider factice est toujours disponible."""
         return True
 
-    def summarize(self, text: str) -> SummaryResult:
-        """Retourne un résumé factice.
+    def summarize(
+        self,
+        text: str,
+        profile: SummaryProfile,
+    ) -> SummaryResult:
+        """Retourne un résumé factice lié au profil.
 
         Args:
             text: Texte à résumer (ignoré).
+            profile: Profil de résumé appliqué.
 
         Returns:
             Résultat de résumé factice.
         """
-        return SummaryResult(text=self._FIXED_SUMMARY, provider=self._NAME)
+        return SummaryResult(
+            text=f"[{profile.label}] {self._FIXED_SUMMARY}",
+            provider=self._NAME,
+        )
 
     def available_models(self) -> list[str]:
         """Le provider factice n'a pas de modèles."""

@@ -74,11 +74,18 @@ class SettingsWindow(QDialog):
             "summarization_model_combo"
         )
         self._summarization_model_combo.setEditable(True)
+        self._summarization_profile_combo = QComboBox(self._summarization_group)
+        self._summarization_profile_combo.setObjectName(
+            "summarization_profile_combo"
+        )
         self._summarization_layout.addRow(
             "Provider :", self._summarization_provider_combo
         )
         self._summarization_layout.addRow(
             "Modèle :", self._summarization_model_combo
+        )
+        self._summarization_layout.addRow(
+            "Profil :", self._summarization_profile_combo
         )
 
         self._export_group = QGroupBox("Export", self)
@@ -142,6 +149,16 @@ class SettingsWindow(QDialog):
                 self._initial_settings["summarization_model"]
             )
 
+        for profile in self._initial_settings["summarization_profiles"]:
+            self._summarization_profile_combo.addItem(
+                profile["label"], profile["key"]
+            )
+        self._summarization_profile_combo.setCurrentIndex(
+            self._summarization_profile_combo.findData(
+                self._initial_settings["summarization_profile"]
+            )
+        )
+
         self._device_combo.addItems(["auto", "cpu", "cuda"])
         self._device_combo.setCurrentText(self._initial_settings["device"])
 
@@ -181,4 +198,5 @@ class SettingsWindow(QDialog):
             "output_directory": self._output_directory_edit.text(),
             "summarization_provider": self._summarization_provider_combo.currentText(),
             "summarization_model": self._summarization_model_combo.currentText(),
+            "summarization_profile": self._summarization_profile_combo.currentData(),
         }

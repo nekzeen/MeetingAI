@@ -54,6 +54,8 @@ class TestSettingsController(unittest.TestCase):
         self.assertIn("summarization_provider", settings)
         self.assertIn("summarization_model", settings)
         self.assertIn("summarization_available_models", settings)
+        self.assertIn("summarization_profile", settings)
+        self.assertIn("summarization_profiles", settings)
 
     def test_save_settings_persists_values(self) -> None:
         """save_settings persiste les nouvelles valeurs dans ConfigManager."""
@@ -68,6 +70,7 @@ class TestSettingsController(unittest.TestCase):
             "output_directory": "custom_output",
             "summarization_provider": "fake",
             "summarization_model": "custom-model",
+            "summarization_profile": "key_points",
         }
 
         controller.save_settings(new_settings)
@@ -84,6 +87,9 @@ class TestSettingsController(unittest.TestCase):
         )
         self.assertEqual(
             config_manager.get("summarization.ollama_model"), "custom-model"
+        )
+        self.assertEqual(
+            config_manager.get("summarization.profile"), "key_points"
         )
 
     def test_save_settings_rejects_invalid_theme(self) -> None:
@@ -109,6 +115,15 @@ class TestSettingsController(unittest.TestCase):
         controller, _ = self._build_controller()
         settings = controller.load_settings()
         settings["summarization_provider"] = "unknown"
+
+        with self.assertRaises(ValueError):
+            controller.save_settings(settings)
+
+    def test_save_settings_rejects_invalid_summarization_profile(self) -> None:
+        """save_settings lève une erreur si le profil de résumé n'est pas supporté."""
+        controller, _ = self._build_controller()
+        settings = controller.load_settings()
+        settings["summarization_profile"] = "unknown"
 
         with self.assertRaises(ValueError):
             controller.save_settings(settings)

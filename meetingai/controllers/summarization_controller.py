@@ -8,6 +8,7 @@ from meetingai.config.config_manager import ConfigManager
 from meetingai.services.speech_to_text.transcription_result import (
     TranscriptionResult,
 )
+from meetingai.services.summarization.summary_profile import ProfileRegistry
 from meetingai.services.summarization.summary_result import SummaryResult
 from meetingai.services.summarization.summarization_factory import (
     SummarizationFactory,
@@ -61,9 +62,11 @@ class SummarizationController(QObject):
             return
 
         provider_name = self._config.get("summarization.provider") or "fake"
+        profile_key = self._config.get("summarization.profile") or "concise"
         try:
             service = self._factory.create(provider_name, config=self._config)
-            summary = service.summarize(self._last_transcription.text)
+            profile = ProfileRegistry().get(profile_key)
+            summary = service.summarize(self._last_transcription.text, profile)
             self.summary_ready.emit(summary)
         except Exception as exc:
             self.summary_failed.emit(str(exc))

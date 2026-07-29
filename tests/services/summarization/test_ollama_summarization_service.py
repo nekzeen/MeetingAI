@@ -7,6 +7,7 @@ from unittest.mock import patch
 from meetingai.services.summarization.ollama_summarization_service import (
     OllamaSummarizationService,
 )
+from meetingai.services.summarization.summary_profile import ProfileRegistry
 from meetingai.services.summarization.summary_result import SummaryResult
 
 
@@ -60,12 +61,13 @@ class TestOllamaSummarizationService(unittest.TestCase):
     def test_summarize_returns_summary_result(self) -> None:
         """summarize retourne un SummaryResult à partir de la réponse Ollama."""
         service = OllamaSummarizationService()
+        profile = ProfileRegistry().get("concise")
         response = _MockHTTPResponse(
             json.dumps({"response": "Résumé Ollama."}).encode("utf-8")
         )
 
         with patch("meetingai.services.summarization.ollama_summarization_service.urlopen", return_value=response):
-            result = service.summarize("Texte long à résumer.")
+            result = service.summarize("Texte long à résumer.", profile)
 
         self.assertIsInstance(result, SummaryResult)
         self.assertEqual(result.text, "Résumé Ollama.")
@@ -74,43 +76,47 @@ class TestOllamaSummarizationService(unittest.TestCase):
     def test_summarize_trims_response(self) -> None:
         """summarize nettoie les espaces autour du résumé."""
         service = OllamaSummarizationService()
+        profile = ProfileRegistry().get("concise")
         response = _MockHTTPResponse(
             json.dumps({"response": "  Résumé nettoyé.  "}).encode("utf-8")
         )
 
         with patch("meetingai.services.summarization.ollama_summarization_service.urlopen", return_value=response):
-            result = service.summarize("Texte.")
+            result = service.summarize("Texte.", profile)
 
         self.assertEqual(result.text, "Résumé nettoyé.")
 
     def test_summarize_raises_on_http_error(self) -> None:
         """summarize lève une erreur en cas d'échec HTTP."""
         service = OllamaSummarizationService()
+        profile = ProfileRegistry().get("concise")
 
         with patch(
             "meetingai.services.summarization.ollama_summarization_service.urlopen",
             side_effect=Exception("Internal Server Error"),
         ):
             with self.assertRaises(RuntimeError):
-                service.summarize("Texte.")
+                service.summarize("Texte.", profile)
 
     def test_summarize_raises_on_missing_response_field(self) -> None:
         """summarize lève une erreur si le champ response est absent."""
         service = OllamaSummarizationService()
+        profile = ProfileRegistry().get("concise")
         response = _MockHTTPResponse(json.dumps({"done": True}).encode("utf-8"))
 
         with patch("meetingai.services.summarization.ollama_summarization_service.urlopen", return_value=response):
             with self.assertRaises(RuntimeError):
-                service.summarize("Texte.")
+                service.summarize("Texte.", profile)
 
     def test_summarize_raises_on_invalid_json(self) -> None:
         """summarize lève une erreur si la réponse n'est pas du JSON valide."""
         service = OllamaSummarizationService()
+        profile = ProfileRegistry().get("concise")
         response = _MockHTTPResponse(b"not json")
 
         with patch("meetingai.services.summarization.ollama_summarization_service.urlopen", return_value=response):
             with self.assertRaises(RuntimeError):
-                service.summarize("Texte.")
+                service.summarize("Texte.", profile)
 
     def test_available_models_returns_sorted_names(self) -> None:
         """available_models extrait et trie les noms des modèles."""

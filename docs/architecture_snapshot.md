@@ -208,3 +208,29 @@ Le provider est automatiquement enregistré dans ``SummarizationFactory``. Le co
 ### Extensibilité
 
 La méthode ``available_models()`` fait partie de l'interface ``SummarizationService``. Les futurs providers qui proposent plusieurs modèles pourront l'implémenter de la même manière sans modifier le contrôleur ou la vue.
+
+---
+
+## Profils de résumé
+
+### Définition
+
+Un profil de résumé est représenté par ``SummaryProfile`` (clé, libellé affiché, instruction). Les profils par défaut sont :
+
+- ``concise`` : résumé concis ;
+- ``meeting_minutes`` : compte rendu structuré de réunion ;
+- ``key_points`` : points clés ;
+- ``action_items`` : actions à entreprendre ;
+- ``decisions`` : décisions prises.
+
+``ProfileRegistry`` centralise les profils disponibles et permet d'en ajouter de nouveaux sans modifier les providers.
+
+### Transmission au provider
+
+L'interface ``SummarizationService.summarize(text, profile)`` reçoit désormais le profil sélectionné. Chaque provider utilise ``profile.instruction`` pour guider la génération. Le provider ``fake`` intègre le libellé du profil dans son résumé simulé afin de faciliter les tests.
+
+### Sélection et persistance
+
+- `SummarizationController` lit ``summarization.profile`` (défaut : ``concise``) et transmet le profil au provider.
+- `SettingsController` charge la liste des profils via ``ProfileRegistry`` et la propose dans un menu déroulant de `SettingsWindow`.
+- La clé sélectionnée est persistée sous ``summarization.profile``.

@@ -6,6 +6,7 @@ from meetingai.config.config_manager import ConfigManager
 from meetingai.services.speech_to_text.speech_to_text_factory import (
     SpeechToTextFactory,
 )
+from meetingai.services.summarization.summary_profile import ProfileRegistry
 from meetingai.services.summarization.summarization_factory import (
     SummarizationFactory,
 )
@@ -57,6 +58,8 @@ class SettingsController:
         except RuntimeError:
             available_models = []
 
+        profile_registry = ProfileRegistry()
+
         return {
             "theme": self._config.get("application.theme"),
             "language": self._config.get("application.language"),
@@ -72,6 +75,13 @@ class SettingsController:
                 "summarization.ollama_model"
             ),
             "summarization_available_models": available_models,
+            "summarization_profile": self._config.get(
+                "summarization.profile"
+            ),
+            "summarization_profiles": [
+                {"key": profile.key, "label": profile.label}
+                for profile in profile_registry.available_profiles()
+            ],
         }
 
     def save_settings(self, settings: dict[str, str]) -> None:
@@ -100,6 +110,9 @@ class SettingsController:
         self._config.set(
             "summarization.ollama_model", settings["summarization_model"]
         )
+        self._config.set(
+            "summarization.profile", settings["summarization_profile"]
+        )
         self._config.save()
 
     def _validate(self, settings: dict[str, str]) -> None:
@@ -123,6 +136,15 @@ class SettingsController:
             raise ValueError(
                 "Provider de résumé non supporté : "
                 f"{settings['summarization_provider']}"
+            )
+        available_profile_keys = {
+            profile.key
+            for profile in ProfileRegistry().available_profiles()
+        }
+        if settings["summarization_profile"] not in available_profile_keys:
+            raise ValueError(
+                "Profil de résumé non supporté : "
+                f"{settings['summarization_profile']}"
             )
 
     def available_themes(self) -> list[str]:

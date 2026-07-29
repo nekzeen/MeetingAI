@@ -68,8 +68,20 @@ class TestSummarizationController(unittest.TestCase):
         self.controller.summarize_current_transcription()
 
         self.assertEqual(len(emitted), 1)
-        self.assertEqual(emitted[0].text, "Ceci est un résumé simulé.")
+        self.assertIn("Ceci est un résumé simulé.", emitted[0].text)
         self.assertEqual(emitted[0].provider, "fake")
+
+    def test_summarize_uses_configured_profile(self) -> None:
+        """Le contrôleur transmet le profil de résumé choisi."""
+        self.config_manager.set("summarization.profile", "key_points")
+        self.controller.on_transcription_ready(self._build_transcription())
+        emitted: list[object] = []
+        self.controller.summary_ready.connect(emitted.append)
+
+        self.controller.summarize_current_transcription()
+
+        self.assertEqual(len(emitted), 1)
+        self.assertIn("Points clés", emitted[0].text)
 
     def test_summarize_uses_configured_provider(self) -> None:
         """Le contrôleur utilise le provider configuré."""
@@ -80,7 +92,11 @@ class TestSummarizationController(unittest.TestCase):
             def is_available(self) -> bool:
                 return True
 
-            def summarize(self, text: str) -> SummaryResult:
+            def summarize(
+                self,
+                text: str,
+                profile: object,
+            ) -> SummaryResult:
                 return SummaryResult(text="résumé custom", provider="custom")
 
             def available_models(self) -> list[str]:

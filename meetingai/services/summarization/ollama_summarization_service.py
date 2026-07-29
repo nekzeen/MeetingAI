@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from urllib.request import Request, urlopen
 
+from meetingai.services.summarization.summary_profile import SummaryProfile
 from meetingai.services.summarization.summary_result import SummaryResult
 from meetingai.services.summarization.summarization_service import (
     SummarizationService,
@@ -51,11 +52,16 @@ class OllamaSummarizationService(SummarizationService):
         except Exception:
             return False
 
-    def summarize(self, text: str) -> SummaryResult:
-        """Résume le texte fourni via l'API Ollama.
+    def summarize(
+        self,
+        text: str,
+        profile: SummaryProfile,
+    ) -> SummaryResult:
+        """Résume le texte fourni via l'API Ollama selon le profil.
 
         Args:
             text: Texte à résumer.
+            profile: Profil de résumé à appliquer.
 
         Returns:
             Résultat du résumé.
@@ -63,10 +69,7 @@ class OllamaSummarizationService(SummarizationService):
         Raises:
             RuntimeError: Si la requête échoue ou si la réponse est invalide.
         """
-        prompt = (
-            "Résume le texte suivant de manière concise en français.\n\n"
-            f"{text}"
-        )
+        prompt = f"{profile.instruction}\n\n{text}"
         payload = {
             "model": self._model,
             "prompt": prompt,

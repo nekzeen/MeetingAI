@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from meetingai.services.summarization.summary_profile import SummaryProfile
 from meetingai.services.summarization.summary_result import SummaryResult
 
 
@@ -31,11 +32,16 @@ class SummarizationService(ABC):
         """
 
     @abstractmethod
-    def summarize(self, text: str) -> SummaryResult:
-        """Résume le texte fourni.
+    def summarize(
+        self,
+        text: str,
+        profile: SummaryProfile,
+    ) -> SummaryResult:
+        """Résume le texte fourni selon le profil donné.
 
         Args:
             text: Texte à résumer.
+            profile: Profil de résumé à appliquer.
 
         Returns:
             Résultat du résumé.

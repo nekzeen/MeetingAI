@@ -12,6 +12,7 @@ from meetingai.services.summarization.summary_result import SummaryResult
 from meetingai.services.summarization.summarization_factory import (
     SummarizationFactory,
 )
+from meetingai.services.summarization.summary_profile import ProfileRegistry
 from meetingai.services.summarization.summarization_service import (
     SummarizationService,
 )
@@ -66,7 +67,11 @@ class TestSummarizationFactory(unittest.TestCase):
             def is_available(self) -> bool:
                 return True
 
-            def summarize(self, text: str) -> SummaryResult:
+            def summarize(
+                self,
+                text: str,
+                profile: object,
+            ) -> SummaryResult:
                 return SummaryResult(text="résumé custom", provider="custom")
 
             def available_models(self) -> list[str]:
@@ -95,14 +100,25 @@ class TestFakeSummarizationService(unittest.TestCase):
         self.assertTrue(service.is_available())
 
     def test_summarize_returns_fixed_summary(self) -> None:
-        """summarize retourne un résumé fixe."""
+        """summarize retourne un résumé fixe lié au profil par défaut."""
         service = FakeSummarizationService()
+        profile = ProfileRegistry().get("concise")
 
-        result = service.summarize("Un long texte à résumer.")
+        result = service.summarize("Un long texte à résumer.", profile)
 
         self.assertIsInstance(result, SummaryResult)
-        self.assertEqual(result.text, "Ceci est un résumé simulé.")
+        self.assertIn("Ceci est un résumé simulé.", result.text)
+        self.assertIn(profile.label, result.text)
         self.assertEqual(result.provider, "fake")
+
+    def test_summarize_changes_text_with_profile(self) -> None:
+        """summarize inclut le libellé du profil dans le résumé factice."""
+        service = FakeSummarizationService()
+        profile = ProfileRegistry().get("key_points")
+
+        result = service.summarize("Texte.", profile)
+
+        self.assertIn(profile.label, result.text)
 
 
 if __name__ == "__main__":

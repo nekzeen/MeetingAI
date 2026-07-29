@@ -38,6 +38,11 @@ class TestSettingsWindow(unittest.TestCase):
             "summarization_providers": ["fake", "ollama"],
             "summarization_model": "llama3.2",
             "summarization_available_models": [],
+            "summarization_profile": "concise",
+            "summarization_profiles": [
+                {"key": "concise", "label": "Résumé concis"},
+                {"key": "key_points", "label": "Points clés"},
+            ],
         }
         self.window = SettingsWindow(self.initial_settings)
 
@@ -104,6 +109,7 @@ class TestSettingsWindow(unittest.TestCase):
         self.assertEqual(settings["output_directory"], "output")
         self.assertEqual(settings["summarization_provider"], "fake")
         self.assertEqual(settings["summarization_model"], "llama3.2")
+        self.assertEqual(settings["summarization_profile"], "concise")
 
     def _find_combo_by_items(self, expected_items: set[str]) -> QComboBox:
         """Retourne le QComboBox dont tous les items attendus sont présents."""
@@ -116,6 +122,12 @@ class TestSettingsWindow(unittest.TestCase):
     def _find_summarization_model_combo(self) -> QComboBox:
         """Retourne le QComboBox de sélection du modèle de résumé IA."""
         combo = self.window.findChild(QComboBox, "summarization_model_combo")
+        assert combo is not None
+        return combo
+
+    def _find_summarization_profile_combo(self) -> QComboBox:
+        """Retourne le QComboBox de sélection du profil de résumé IA."""
+        combo = self.window.findChild(QComboBox, "summarization_profile_combo")
         assert combo is not None
         return combo
 
@@ -154,6 +166,11 @@ class TestSettingsWindow(unittest.TestCase):
         model_combo = self._find_summarization_model_combo()
         model_combo.setCurrentText("mistral")
 
+        profile_combo = self._find_summarization_profile_combo()
+        profile_combo.setCurrentIndex(
+            profile_combo.findData("key_points")
+        )
+
         edits = self.window.findChildren(QLineEdit)
         model_edit = edits[0]
         output_edit = next(
@@ -173,6 +190,7 @@ class TestSettingsWindow(unittest.TestCase):
         self.assertEqual(settings["output_directory"], "custom")
         self.assertEqual(settings["summarization_provider"], "fake")
         self.assertEqual(settings["summarization_model"], "mistral")
+        self.assertEqual(settings["summarization_profile"], "key_points")
 
     def test_get_settings_reflects_summarization_provider_change(self) -> None:
         """get_settings reflète le changement de provider de résumé."""
