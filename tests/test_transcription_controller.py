@@ -1,15 +1,17 @@
 """Tests du contrôleur de transcription."""
 
+import time
 import unittest
 from unittest.mock import MagicMock
 
 from PySide6.QtCore import QCoreApplication
 from PySide6.QtTest import QSignalSpy
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 from meetingai.controllers.transcription_controller import (
     TranscriptionController,
 )
+from meetingai.core.task import Task
 from meetingai.core.task_manager import TaskManager
 from meetingai.core.worker_manager import WorkerManager
 from meetingai.logging.logger_manager import LoggerManager
@@ -53,12 +55,14 @@ class TestTranscriptionController(unittest.TestCase):
             size=1234,
             media_type=MediaType.AUDIO,
         )
-        self.task = MagicMock()
+        self.task = Task(name="transcription")
         self.task_manager.create_task.return_value = self.task
 
     def tearDown(self) -> None:
-        """Traite les événements Qt en attente."""
-        QCoreApplication.processEvents()
+        """Traite les événements Qt en attente et attend le nettoyage."""
+        for _ in range(60):
+            QCoreApplication.processEvents()
+            time.sleep(0.005)
 
     def test_dependencies_injected(self) -> None:
         """Le contrôleur reçoit bien ses dépendances."""
@@ -68,9 +72,16 @@ class TestTranscriptionController(unittest.TestCase):
 
     def test_transcribe_without_media_warns(self) -> None:
         """transcribe affiche un avertissement si aucun média n'est fourni."""
-        result = self.controller.transcribe(None)
+        with unittest.mock.patch.object(
+            QMessageBox,
+            "warning",
+            return_value=None,
+        ) as mock_warning:
+            result = self.controller.transcribe(None)
+
         self.assertIsNone(result)
         self.task_manager.create_task.assert_not_called()
+        mock_warning.assert_called_once()
 
     def test_transcribe_emits_started_and_ready(self) -> None:
         """transcribe démarre un worker et émet ready à la fin."""
@@ -136,8 +147,6 @@ class TestTranscriptionController(unittest.TestCase):
             QCoreApplication.processEvents()
             if spy.count() > 0:
                 return True
-            import time
-
             time.sleep(0.05)
         return False
 

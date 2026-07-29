@@ -19,10 +19,10 @@ class _TranscriptionThread(QThread):
 
     Ce thread est volontairement séparé du worker afin de conserver
     ``TranscriptionWorker`` comme simple QObject porteur de signaux, sans
-    hériter de ``QThread``.
+    hériter de ``QThread`` et sans utiliser ``moveToThread``.
     """
 
-    def __init__(self, worker: TranscriptionWorker) -> None:
+    def __init__(self, worker: "TranscriptionWorker") -> None:
         """Initialise le thread avec son worker."""
         super().__init__()
         self._worker = worker

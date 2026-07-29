@@ -47,6 +47,12 @@ class TestTranscriptionWorker(unittest.TestCase):
             time.sleep(0.05)
         return False
 
+    def _wait_for_thread(self, worker: TranscriptionWorker, timeout_ms: int = 2000) -> bool:
+        """Attend que le thread interne du worker soit terminé."""
+        if worker._thread is None:
+            return False
+        return worker._thread.wait(timeout_ms)
+
     def test_worker_emits_finished_with_result(self) -> None:
         """Le worker émet finished avec le résultat en cas de succès."""
         task = Task(name="transcription")
@@ -68,6 +74,7 @@ class TestTranscriptionWorker(unittest.TestCase):
 
         worker.start()
         self.assertTrue(self._wait_for_signal(spy_finished, timeout_ms=2000))
+        self.assertTrue(self._wait_for_thread(worker, timeout_ms=2000))
 
         self.assertEqual(spy_finished.count(), 1)
         self.assertEqual(spy_finished.at(0)[0], expected)
@@ -89,6 +96,7 @@ class TestTranscriptionWorker(unittest.TestCase):
 
         worker.start()
         self.assertTrue(self._wait_for_signal(spy_failed, timeout_ms=2000))
+        self.assertTrue(self._wait_for_thread(worker, timeout_ms=2000))
 
         self.assertEqual(spy_failed.count(), 1)
         self.assertIsInstance(spy_failed.at(0)[0], RuntimeError)
@@ -107,6 +115,7 @@ class TestTranscriptionWorker(unittest.TestCase):
 
         worker.start()
         self.assertTrue(self._wait_for_signal(spy_cancelled, timeout_ms=2000))
+        self.assertTrue(self._wait_for_thread(worker, timeout_ms=2000))
 
         self.assertEqual(spy_cancelled.count(), 1)
         self.assertEqual(task.status, TaskStatus.CANCELLED)
