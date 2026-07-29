@@ -48,6 +48,7 @@ class TranscriptionWorker(QObject):
 
     started = Signal()
     progress = Signal(int)
+    status = Signal(str)
     finished = Signal(TranscriptionResult)
     failed = Signal(Exception)
     cancelled = Signal()
@@ -71,6 +72,17 @@ class TranscriptionWorker(QObject):
     def task(self) -> Task:
         """Retourne la tâche associée au worker."""
         return self._task
+
+    def _emit_model_status(self) -> None:
+        """Signale la phase de préparation du modèle (téléchargement ou chargement)."""
+        service_name = getattr(self._service, "name", lambda: "STT")()
+        model_present = getattr(self._service, "is_model_present", lambda: True)()
+        if model_present:
+            self.status.emit(f"Chargement du modèle {service_name}...")
+        else:
+            self.status.emit(
+                f"Téléchargement du modèle {service_name} (première utilisation)..."
+            )
 
     def cancel(self) -> None:
         """Demande l'annulation du traitement.
@@ -106,6 +118,8 @@ class TranscriptionWorker(QObject):
         self.progress.emit(0)
         try:
             self._task.status = TaskStatus.RUNNING
+            self._emit_model_status()
+            self.status.emit("Transcription en cours...")
 
             def _progress_callback(value: int) -> None:
                 self.progress.emit(value)

@@ -103,6 +103,9 @@ class MainWindow(QMainWindow):
                     )
                 )
             if self._context.transcription_controller is not None:
+                self._context.transcription_controller.transcription_status.connect(
+                    self._show_transcription_status
+                )
                 self._context.transcription_controller.transcription_ready.connect(
                     self._on_transcription_ready
                 )
@@ -123,6 +126,10 @@ class MainWindow(QMainWindow):
                 "Mode CPU utilisé",
                 warning,
             )
+
+    def _show_transcription_status(self, message: str) -> None:
+        """Affiche le message de phase de transcription dans la barre de statut."""
+        self.statusBar().showMessage(message)
 
     def _show_transcription_error(self, message: str) -> None:
         """Affiche une boîte de dialogue en cas d'échec de transcription."""

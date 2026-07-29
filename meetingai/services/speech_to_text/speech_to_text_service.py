@@ -64,6 +64,13 @@ class SpeechToTextService(ABC):
     def supported_languages(self) -> list[str]:
         """Retourne la liste des langues supportées."""
 
+    def is_model_present(self) -> bool:
+        """Indique si le modèle est déjà présent localement.
+
+        Par défaut, un service n'a pas de modèle externe à vérifier.
+        """
+        return True
+
 
 class NullSpeechToTextService(SpeechToTextService):
     """Implémentation placeholder du moteur Speech-To-Text.

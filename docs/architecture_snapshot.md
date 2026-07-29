@@ -124,6 +124,25 @@ Si le téléchargement échoue (pas de réseau, espace insuffisant...), une
 Cette erreur est remontée jusqu'à l'interface via `transcription_failed` (ou
 `pipeline_failed`) et présentée à l'utilisateur dans une boîte de dialogue.
 
+### Phases visibles pour l'utilisateur
+
+`TranscriptionWorker` émet un signal `status` (textuel) en plus du signal
+`progress` (numérique). Ce signal est relayé par `TranscriptionController` sous
+le nom `transcription_status` et affiché dans la barre de statut de
+`MainWindow`. Les phases suivantes sont distinguées :
+
+- **Préparation** : signal initial avec `progress == 0`.
+- **Téléchargement du modèle** : affiché lors de la première utilisation si le
+  modèle n'est pas déjà présent (`is_model_present() == False`).
+- **Chargement du modèle** : affiché si le modèle est déjà présent ou une fois
+  le téléchargement terminé.
+- **Transcription en cours** : affiché dès que le service signale une
+  progression.
+- **Terminé** : `progress == 100` et affichage du résultat.
+
+La progression numérique reste inchangée : 0 au début, puis les valeurs
+fournies par le service (`0–100`).
+
 ### Périphérique d'exécution
 
 Le périphérique configuré (`auto`, `cpu`, `cuda`) est transmis à
@@ -152,11 +171,20 @@ Le chargement du modèle est protégé par un verrou (`threading.Lock`) afin d'�
 
 ### Vérification de présence
 
-Avant le chargement, `FasterWhisperService` vérifie l'existence du répertoire attendu via `is_model_present()`. Si le répertoire est absent, une `RuntimeError` explicite est levée : elle indique le nom du modèle demandé et l'emplacement recherché.
+`SpeechToTextService` expose `is_model_present()` (valeur par défaut `True`).
+`FasterWhisperService` la surcouche pour vérifier l'existence du répertoire
+local `models_directory / model_size`. Cette information permet à
+`TranscriptionWorker` d'afficher le bon message de phase à l'utilisateur
+("téléchargement" vs "chargement") avant la première transcription.
 
 ### Téléchargement / installation
 
-`FasterWhisperService.download_model()` offre un mécanisme de téléchargement explicite. Cette méthode délègue à `faster_whisper.download_model()` et retourne le chemin du modèle téléchargé. Elle n'est **jamais appelée automatiquement** ; l'appelant doit l'invoquer explicitement (interface utilisateur, outil d'installation, etc.).
+`FasterWhisperService.download_model()` offre un mécanisme de téléchargement
+explicite. Cette méthode délègue à `faster_whisper.download_model()` et
+retourne le chemin du modèle téléchargé. Lors d'une première utilisation, le
+service déclenche automatiquement le téléchargement/cache natif via
+`WhisperModel(..., local_files_only=False)`. En cas d'échec, une `RuntimeError`
+explicite est remontée.
 
 ### Erreurs
 

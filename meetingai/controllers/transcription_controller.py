@@ -41,6 +41,7 @@ class TranscriptionController(QObject):
 
     transcription_started = Signal(object)
     transcription_progress = Signal(int)
+    transcription_status = Signal(str)
     transcription_ready = Signal(object)
     transcription_failed = Signal(str)
     transcription_cancelled = Signal(object)
@@ -109,6 +110,7 @@ class TranscriptionController(QObject):
             lambda: self._logger.info("Transcription démarrée : %s", task.id)
         )
         worker.progress.connect(self.transcription_progress.emit)
+        worker.status.connect(self.transcription_status.emit)
         worker.finished.connect(
             lambda result: self._on_worker_finished(worker, task, result)
         )

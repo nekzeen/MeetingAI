@@ -162,6 +162,69 @@ class TestTranscriptionWorker(unittest.TestCase):
         self.assertEqual(task.status, TaskStatus.CANCELLED)
         service.transcribe.assert_not_called()
 
+    def test_worker_emits_model_loading_status(self) -> None:
+        """Le worker signale le chargement du modèle avant la transcription."""
+        task = Task(name="transcription")
+        service = MagicMock(spec=SpeechToTextService)
+        service.name.return_value = "FasterWhisper"
+        service.is_model_present.return_value = True
+        expected = TranscriptionResult(
+            text="Bonjour",
+            language="fr",
+            duration=1.0,
+            model="fake",
+            processing_time=0.1,
+            metadata={},
+        )
+        service.transcribe.return_value = expected
+        media = self._build_media()
+
+        worker = TranscriptionWorker(task, service, media)
+        spy_status = QSignalSpy(worker.status)
+        spy_finished = QSignalSpy(worker.finished)
+
+        worker.start()
+        self.assertTrue(self._wait_for_signal(spy_finished, timeout_ms=2000))
+        self.assertTrue(self._wait_for_thread(worker, timeout_ms=2000))
+
+        status_messages = [spy_status.at(i)[0] for i in range(spy_status.count())]
+        self.assertTrue(
+            any("chargement" in message.lower() for message in status_messages)
+        )
+        self.assertTrue(
+            any("transcription" in message.lower() for message in status_messages)
+        )
+
+    def test_worker_emits_model_download_status_when_missing(self) -> None:
+        """Le worker signale le téléchargement du modèle s'il n'est pas présent."""
+        task = Task(name="transcription")
+        service = MagicMock(spec=SpeechToTextService)
+        service.name.return_value = "FasterWhisper"
+        service.is_model_present.return_value = False
+        expected = TranscriptionResult(
+            text="Bonjour",
+            language="fr",
+            duration=1.0,
+            model="fake",
+            processing_time=0.1,
+            metadata={},
+        )
+        service.transcribe.return_value = expected
+        media = self._build_media()
+
+        worker = TranscriptionWorker(task, service, media)
+        spy_status = QSignalSpy(worker.status)
+        spy_finished = QSignalSpy(worker.finished)
+
+        worker.start()
+        self.assertTrue(self._wait_for_signal(spy_finished, timeout_ms=2000))
+        self.assertTrue(self._wait_for_thread(worker, timeout_ms=2000))
+
+        status_messages = [spy_status.at(i)[0] for i in range(spy_status.count())]
+        self.assertTrue(
+            any("téléchargement" in message.lower() for message in status_messages)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
