@@ -115,3 +115,22 @@ L'export repose sur le pattern **Stratégie** pour rester extensible.
 ### Intégration UI
 
 Les actions ``Exporter en TXT`` et ``Exporter en Markdown`` sont ajoutées au menu ``Fichier`` par ``MainWindow`` et connectées à ``ExportController``. Aucune logique métier n'est présente dans la vue.
+
+---
+
+## Architecture de résumé IA
+
+### Principe
+
+Le résumé IA suit la même architecture abstraite que Speech-To-Text et Export afin de rester indépendant du fournisseur.
+
+### Composants
+
+- **`SummarizationService`** (`meetingai/services/summarization/summarization_service.py`) : contrat commun avec `name()`, `is_available()` et `summarize(text)`.
+- **`SummaryResult`** (`meetingai/services/summarization/summary_result.py`) : dataclass retournée par `summarize()`.
+- **`FakeSummarizationService`** : implémentation factice retournant un résumé fixe, utilisée pour valider l'architecture sans appel IA réel.
+- **`SummarizationFactory`** (`meetingai/services/summarization/summarization_factory.py`) : registre des providers. De nouveaux providers (OpenAI, Ollama, LM Studio, Azure OpenAI...) s'ajoutent via `register_provider()` sans modifier le code existant.
+
+### Extensibilité
+
+Chaque futur provider n'a qu'à hériter de ``SummarizationService`` et être enregistré dans la factory pour être disponible dans l'application.
