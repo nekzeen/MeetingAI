@@ -98,3 +98,20 @@ La progression affichée à l'utilisateur est désormais calculée à partir de 
 
 - faster-whisper ne fournit pas de callback natif de progression. La progression est donc estimée à partir des segments produits.
 - La granularité dépend de la taille des segments : de courts fichiers audio peuvent passer directement de 0 à 100%.
+
+---
+
+## Export des transcriptions
+
+### Architecture
+
+L'export repose sur le pattern **Stratégie** pour rester extensible.
+
+- **`Exporter`** (`meetingai/services/export/exporter.py`) : contrat commun avec une propriété ``extension`` et une méthode ``export``.
+- **`TxtExporter`** / **`MarkdownExporter`** : implémentations concrètes pour les formats TXT et Markdown.
+- **`ExportService`** (`meetingai/services/export/export_service.py`) : registre des exporteurs. De nouveaux formats (DOCX, PDF, JSON...) s'ajoutent via ``register_exporter()`` sans modifier le code existant.
+- **`ExportController`** (`meetingai/controllers/export_controller.py`) : garde le dernier résultat de transcription et déclenche l'export. Il choisit le répertoire de sortie depuis ``ConfigManager``.
+
+### Intégration UI
+
+Les actions ``Exporter en TXT`` et ``Exporter en Markdown`` sont ajoutées au menu ``Fichier`` par ``MainWindow`` et connectées à ``ExportController``. Aucune logique métier n'est présente dans la vue.

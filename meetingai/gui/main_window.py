@@ -78,6 +78,13 @@ class MainWindow(QMainWindow):
             self._action_manager.preferences_action.triggered.connect(
                 self._open_settings
             )
+            if self._context.export_controller is not None:
+                self._action_manager.export_txt_action.triggered.connect(
+                    self._context.export_controller.export_txt
+                )
+                self._action_manager.export_markdown_action.triggered.connect(
+                    self._context.export_controller.export_markdown
+                )
 
     def _open_settings(self) -> None:
         """Ouvre la fenêtre de paramètres et persiste les modifications."""
@@ -102,6 +109,10 @@ class MainWindow(QMainWindow):
         file_menu.addAction(actions["new"])
         file_menu.addAction(actions["open"])
         file_menu.addAction(actions["save"])
+        file_menu.addSeparator()
+        file_menu.addAction(actions["export_txt"])
+        file_menu.addAction(actions["export_markdown"])
+        file_menu.addSeparator()
         file_menu.addAction(actions["quit"])
 
         menu_bar.addMenu(QMenu("Édition", self))

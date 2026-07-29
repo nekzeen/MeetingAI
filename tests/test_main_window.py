@@ -84,6 +84,8 @@ class TestMainWindow(unittest.TestCase):
         self.assertIn("Nouveau", texts)
         self.assertIn("Ouvrir", texts)
         self.assertIn("Enregistrer", texts)
+        self.assertIn("Exporter en TXT", texts)
+        self.assertIn("Exporter en Markdown", texts)
         self.assertIn("Quitter", texts)
 
     def test_tools_menu_contains_preferences(self) -> None:

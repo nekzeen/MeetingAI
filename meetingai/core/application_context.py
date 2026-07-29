@@ -11,8 +11,10 @@ from pathlib import Path
 from typing import Any
 
 from meetingai.config.config_manager import ConfigManager
+from meetingai.controllers.export_controller import ExportController
 from meetingai.controllers.media_controller import MediaController
 from meetingai.controllers.transcription_controller import TranscriptionController
+from meetingai.services.export.export_service import ExportService
 from meetingai.core.service_registry import ServiceRegistry
 from meetingai.core.task_manager import TaskManager
 from meetingai.core.worker_manager import WorkerManager
@@ -72,6 +74,14 @@ class ApplicationContext:
                 logger_manager=self.logger,
             )
         )
+        self.export_service: ExportService = ExportService()
+        self.export_controller: ExportController = ExportController(
+            export_service=self.export_service,
+            config_manager=self.config,
+        )
+        self.transcription_controller.transcription_ready.connect(
+            self.export_controller.on_transcription_ready
+        )
         self._register_components()
 
     def _register_components(self) -> None:
@@ -91,6 +101,10 @@ class ApplicationContext:
         )
         self.service_registry.register("model_manager", self.model_manager)
         self.service_registry.register("worker_manager", self.worker_manager)
+        self.service_registry.register("export_service", self.export_service)
+        self.service_registry.register(
+            "export_controller", self.export_controller
+        )
 
     def get_service(self, name: str) -> Any:
         """Retourne un service enregistré dans le registre.

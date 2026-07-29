@@ -68,6 +68,20 @@ class TestActionManager(unittest.TestCase):
         self.assertIsInstance(manager.transcribe_action, QAction)
         self.assertEqual(manager.transcribe_action.text(), "Transcrire")
 
+    def test_export_txt_action_exists(self) -> None:
+        """L'action 'Exporter en TXT' est créée."""
+        manager = ActionManager()
+        self.assertIsInstance(manager.export_txt_action, QAction)
+        self.assertEqual(manager.export_txt_action.text(), "Exporter en TXT")
+
+    def test_export_markdown_action_exists(self) -> None:
+        """L'action 'Exporter en Markdown' est créée."""
+        manager = ActionManager()
+        self.assertIsInstance(manager.export_markdown_action, QAction)
+        self.assertEqual(
+            manager.export_markdown_action.text(), "Exporter en Markdown"
+        )
+
     def test_actions_dictionary(self) -> None:
         """Le dictionnaire expose toutes les actions attendues."""
         manager = ActionManager()
@@ -76,6 +90,8 @@ class TestActionManager(unittest.TestCase):
             "new",
             "open",
             "save",
+            "export_txt",
+            "export_markdown",
             "quit",
             "transcribe",
             "preferences",

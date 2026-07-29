@@ -46,6 +46,8 @@ class ActionManager:
         self.new_action = QAction("Nouveau", self._parent)
         self.open_action = QAction("Ouvrir", self._parent)
         self.save_action = QAction("Enregistrer", self._parent)
+        self.export_txt_action = QAction("Exporter en TXT", self._parent)
+        self.export_markdown_action = QAction("Exporter en Markdown", self._parent)
         self.quit_action = QAction("Quitter", self._parent)
         self.transcribe_action = QAction("Transcrire", self._parent)
         self.preferences_action = QAction("Préférences", self._parent)
@@ -62,6 +64,8 @@ class ActionManager:
             "new": self.new_action,
             "open": self.open_action,
             "save": self.save_action,
+            "export_txt": self.export_txt_action,
+            "export_markdown": self.export_markdown_action,
             "quit": self.quit_action,
             "transcribe": self.transcribe_action,
             "preferences": self.preferences_action,
