@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenu,
     QMenuBar,
+    QMessageBox,
     QStatusBar,
     QToolBar,
 )
@@ -98,6 +99,30 @@ class MainWindow(QMainWindow):
                         self._context.media_controller.current_media
                     )
                 )
+            if self._context.transcription_controller is not None:
+                self._context.transcription_controller.transcription_failed.connect(
+                    self._show_transcription_error
+                )
+            if self._context.pipeline_controller is not None:
+                self._context.pipeline_controller.pipeline_failed.connect(
+                    self._show_pipeline_error
+                )
+
+    def _show_transcription_error(self, message: str) -> None:
+        """Affiche une boîte de dialogue en cas d'échec de transcription."""
+        QMessageBox.critical(
+            self,
+            "Erreur de transcription",
+            message,
+        )
+
+    def _show_pipeline_error(self, message: str) -> None:
+        """Affiche une boîte de dialogue en cas d'échec du pipeline."""
+        QMessageBox.critical(
+            self,
+            "Erreur du pipeline",
+            message,
+        )
 
     def _open_settings(self) -> None:
         """Ouvre la fenêtre de paramètres et persiste les modifications."""

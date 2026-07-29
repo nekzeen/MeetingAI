@@ -151,8 +151,18 @@ class TestFasterWhisperService(unittest.TestCase):
 
             self.assertTrue(service.is_model_present())
 
+    @patch(
+        "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
+        new=MagicMock(),
+    )
     def test_load_model_error_includes_model_name_and_path(self) -> None:
         """load_model indique le nom du modèle et l'emplacement recherché."""
+        from meetingai.services.speech_to_text import faster_whisper_service
+
+        faster_whisper_service._FASTER_WHISPER.WhisperModel.side_effect = (
+            RuntimeError("network unreachable")
+        )
+
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = FasterWhisperService(
                 model_size="tiny",
@@ -165,10 +175,21 @@ class TestFasterWhisperService(unittest.TestCase):
             error_message = str(context.exception).lower()
             self.assertIn("tiny", error_message)
             self.assertIn(str(tmp_dir).lower(), error_message)
-            self.assertIn("introuvable", error_message)
+            self.assertIn("téléchargez", error_message)
+            self.assertIn("download_model", error_message)
 
+    @patch(
+        "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
+        new=MagicMock(),
+    )
     def test_transcribe_reports_error_when_model_missing(self) -> None:
         """transcribe retourne une erreur explicite si le modèle est introuvable."""
+        from meetingai.services.speech_to_text import faster_whisper_service
+
+        faster_whisper_service._FASTER_WHISPER.WhisperModel.side_effect = (
+            RuntimeError("network unreachable")
+        )
+
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = FasterWhisperService(
                 model_size="tiny",
@@ -183,7 +204,8 @@ class TestFasterWhisperService(unittest.TestCase):
             error_message = str(context.exception).lower()
             self.assertIn("tiny", error_message)
             self.assertIn(str(tmp_dir).lower(), error_message)
-            self.assertIn("introuvable", error_message)
+            self.assertIn("téléchargez", error_message)
+            self.assertIn("download_model", error_message)
 
     @patch(
         "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",

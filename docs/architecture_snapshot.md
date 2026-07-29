@@ -100,6 +100,30 @@ Le modèle `faster-whisper` est chargé de manière **paresseuse** :
 - le modèle chargé est mis en cache dans `FasterWhisperService._model` ;
 - les appels suivants à `transcribe()` réutilisent directement le modèle mis en cache.
 
+### Résolution du modèle
+
+`FasterWhisperService` tente d'abord de charger un modèle local situé dans
+`models_directory / model_size` (par exemple `models/small`). Ce chemin permet
+aux utilisateurs avancés d'utiliser un modèle préalablement téléchargé
+manuellement.
+
+Si ce répertoire n'existe pas, le service s'appuie sur le **mécanisme natif de**
+`faster-whisper` : le modèle est identifié par son nom (`small`, `medium`...),
+téléchargé automatiquement dans le cache configuré par `download_root` (ici
+`models/`) puis chargé. Aucune manipulation manuelle n'est donc requise pour
+une installation neuve disposant d'une connexion internet.
+
+Si le téléchargement échoue (pas de réseau, espace insuffisant...), une
+`RuntimeError` claire est remontée. Elle indique :
+
+- le nom du modèle concerné ;
+- le répertoire de cache utilisé ;
+- la commande `FasterWhisperService.download_model(...)` permettant de
+  télécharger le modèle explicitement.
+
+Cette erreur est remontée jusqu'à l'interface via `transcription_failed` (ou
+`pipeline_failed`) et présentée à l'utilisateur dans une boîte de dialogue.
+
 ### Responsabilités
 
 - **`FasterWhisperService`** est responsable du cycle de vie de son modèle : il le charge, le garde en cache et le réutilise.

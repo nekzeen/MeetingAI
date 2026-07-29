@@ -173,35 +173,48 @@ class FasterWhisperService(SpeechToTextService):
         return self._models_directory / self._model_size
 
     def load_model(self) -> None:
-        """Charge le modèle faster-whisper depuis le disque local.
+        """Charge le modèle faster-whisper.
+
+        Si un répertoire local ``models_directory / model_size`` existe, il est
+        utilisé en priorité. Sinon, le mécanisme natif de ``faster-whisper`` est
+        utilisé : le modèle est téléchargé dans le cache configuré par
+        ``download_root`` puis réutilisé pour les appels suivants.
 
         Raises:
-            RuntimeError: Si ``faster-whisper`` n'est pas installé, si le
-                répertoire du modèle n'existe pas ou si le chargement échoue.
+            RuntimeError: Si ``faster-whisper`` n'est pas installé ou si le
+                modèle ne peut être chargé ni trouvé en cache / téléchargé.
         """
         if _FASTER_WHISPER is None:
             raise RuntimeError(
                 "La bibliothèque faster-whisper n'est pas installée."
             )
 
-        model_path = self._resolve_model_path()
-        if not model_path.exists():
-            raise RuntimeError(
-                f"Le modèle faster-whisper '{self._model_size}' est introuvable "
-                f"à l'emplacement attendu : {model_path}. "
-                f"Vérifiez la configuration ou téléchargez le modèle."
-            )
+        local_model_path = self._resolve_model_path()
 
         try:
-            self._model = _FASTER_WHISPER.WhisperModel(
-                str(model_path),
-                device=self._device,
-                compute_type=self._compute_type,
-                local_files_only=True,
-            )
+            if local_model_path.exists():
+                self._model = _FASTER_WHISPER.WhisperModel(
+                    str(local_model_path),
+                    device=self._device,
+                    compute_type=self._compute_type,
+                    local_files_only=True,
+                )
+            else:
+                self._model = _FASTER_WHISPER.WhisperModel(
+                    self._model_size,
+                    device=self._device,
+                    compute_type=self._compute_type,
+                    download_root=str(self._models_directory),
+                    local_files_only=False,
+                )
         except Exception as exc:
             raise RuntimeError(
-                f"Impossible de charger le modèle faster-whisper : {exc}"
+                f"Impossible de charger le modèle faster-whisper "
+                f"'{self._model_size}'. Vérifiez votre connexion réseau, "
+                f"l'accès au répertoire {self._models_directory}, ou téléchargez "
+                f"le modèle explicitement avec :\n"
+                f"FasterWhisperService.download_model("
+                f"'{self._model_size}', '{self._models_directory}')"
             ) from exc
 
     def is_model_present(self) -> bool:

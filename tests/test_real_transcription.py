@@ -26,7 +26,13 @@ class TestFasterWhisperModelLoading(unittest.TestCase):
         new=MagicMock(),
     )
     def test_load_model_raises_when_directory_missing(self) -> None:
-        """load_model échoue proprement si le répertoire du modèle est absent."""
+        """load_model échoue proprement si le modèle n'est ni local ni accessible."""
+        from meetingai.services.speech_to_text import faster_whisper_service
+
+        faster_whisper_service._FASTER_WHISPER.WhisperModel.side_effect = (
+            RuntimeError("network unreachable")
+        )
+
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = FasterWhisperService(
                 model_size="tiny",
@@ -36,10 +42,17 @@ class TestFasterWhisperModelLoading(unittest.TestCase):
             with self.assertRaises(RuntimeError) as context:
                 service.load_model()
 
-            self.assertIn("introuvable", str(context.exception).lower())
+            error_message = str(context.exception).lower()
+            self.assertIn("tiny", error_message)
+            self.assertIn("téléchargez", error_message)
+            self.assertIn("download_model", error_message)
 
+    @patch(
+        "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
+        new=None,
+    )
     def test_transcribe_reports_error_when_model_unavailable(self) -> None:
-        """transcribe retourne une erreur explicite si le modèle est indisponible."""
+        """transcribe retourne une erreur explicite si la bibliothèque est absente."""
         service = FasterWhisperService()
         media = MagicMock(spec=MediaFile)
         task = MagicMock(spec=Task)
@@ -47,10 +60,7 @@ class TestFasterWhisperModelLoading(unittest.TestCase):
         with self.assertRaises(RuntimeError) as context:
             service.transcribe(media, task)
 
-        error_message = str(context.exception).lower()
-        self.assertTrue(
-            "bibliothèque" in error_message or "introuvable" in error_message
-        )
+        self.assertIn("bibliothèque", str(context.exception).lower())
 
 
 class TestFasterWhisperTranscription(unittest.TestCase):
