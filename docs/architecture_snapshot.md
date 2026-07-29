@@ -143,6 +143,13 @@ le nom `transcription_status` et affiché dans la barre de statut de
 La progression numérique reste inchangée : 0 au début, puis les valeurs
 fournies par le service (`0–100`).
 
+À l'issue de chaque transcription, `TranscriptionController` émet un message
+d'état final (`Transcription terminée.`, `Erreur de transcription.` ou
+`Transcription annulée.`) via `transcription_status`. Un garde-fou vérifie que
+les messages de phase provenant d'un worker (`status`) ne sont relayés que
+tant que ce worker est encore répertorié comme actif, évitant ainsi qu'un
+signal asynchrone retardé n'écrase l'état final.
+
 ### Périphérique d'exécution
 
 Le périphérique configuré (`auto`, `cpu`, `cuda`) est transmis à

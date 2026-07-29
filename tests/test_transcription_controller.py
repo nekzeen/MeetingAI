@@ -177,6 +177,45 @@ class TestTranscriptionController(unittest.TestCase):
         QCoreApplication.processEvents()
         self.assertEqual(self.controller._active_workers, {})
 
+    def test_transcribe_emits_final_status_on_success(self) -> None:
+        """Une transcription réussie affiche un état final."""
+        self.speech_service.transcribe.return_value = TranscriptionResult(
+            text="OK",
+            language="fr",
+            duration=0.0,
+            model="fake",
+            processing_time=0.0,
+            metadata={},
+        )
+
+        spy_status = QSignalSpy(self.controller.transcription_status)
+        spy_ready = QSignalSpy(self.controller.transcription_ready)
+        self.controller.transcribe(self.media)
+
+        self._wait_for_signal(spy_ready, timeout_ms=2000)
+        self._wait_for_signal(spy_status, timeout_ms=2000)
+        QCoreApplication.processEvents()
+
+        status_messages = [spy_status.at(i)[0] for i in range(spy_status.count())]
+        self.assertTrue(status_messages)
+        self.assertIn("terminée", status_messages[-1].lower())
+
+    def test_transcribe_emits_final_status_on_error(self) -> None:
+        """Une erreur de transcription affiche un état final d'erreur."""
+        self.speech_service.transcribe.side_effect = RuntimeError("modèle absent")
+
+        spy_status = QSignalSpy(self.controller.transcription_status)
+        spy_failed = QSignalSpy(self.controller.transcription_failed)
+        self.controller.transcribe(self.media)
+
+        self._wait_for_signal(spy_failed, timeout_ms=2000)
+        self._wait_for_signal(spy_status, timeout_ms=2000)
+        QCoreApplication.processEvents()
+
+        status_messages = [spy_status.at(i)[0] for i in range(spy_status.count())]
+        self.assertTrue(status_messages)
+        self.assertIn("erreur", status_messages[-1].lower())
+
     def _wait_for_signal(self, spy: QSignalSpy, timeout_ms: int = 2000) -> bool:
         """Attend qu'un QSignalSpy reçoive au moins un signal."""
         for _ in range(timeout_ms // 50):

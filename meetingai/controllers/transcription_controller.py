@@ -110,7 +110,9 @@ class TranscriptionController(QObject):
             lambda: self._logger.info("Transcription démarrée : %s", task.id)
         )
         worker.progress.connect(self.transcription_progress.emit)
-        worker.status.connect(self.transcription_status.emit)
+        worker.status.connect(
+            lambda message: self._on_worker_status(worker, task, message)
+        )
         worker.finished.connect(
             lambda result: self._on_worker_finished(worker, task, result)
         )
@@ -120,6 +122,20 @@ class TranscriptionController(QObject):
         worker.cancelled.connect(
             lambda: self._on_worker_cancelled(worker, task)
         )
+
+    def _on_worker_status(
+        self,
+        worker: TranscriptionWorker,
+        task: Task,
+        message: str,
+    ) -> None:
+        """Relaie un message de phase uniquement pour les workers encore actifs.
+
+        Cette garde évite qu'un signal asynchrone d'un worker déjà terminé
+        n'écrase l'état final affiché dans l'interface.
+        """
+        if task.id in self._active_workers:
+            self.transcription_status.emit(message)
 
     def _on_worker_finished(
         self,
@@ -131,6 +147,7 @@ class TranscriptionController(QObject):
         self._logger.info("Transcription terminée : %s", result.text)
         self._cleanup_worker(worker, task)
         self.transcription_progress.emit(100)
+        self.transcription_status.emit("Transcription terminée.")
         self.transcription_ready.emit(result)
 
     def _on_worker_failed(
@@ -142,6 +159,7 @@ class TranscriptionController(QObject):
         """Gère l'échec d'une transcription."""
         self._logger.error("Échec de la transcription : %s", exc)
         self._cleanup_worker(worker, task)
+        self.transcription_status.emit("Erreur de transcription.")
         self.transcription_failed.emit(str(exc))
 
     def _on_worker_cancelled(
@@ -152,6 +170,7 @@ class TranscriptionController(QObject):
         """Gère l'annulation d'une transcription."""
         self._logger.info("Transcription annulée : %s", task.id)
         self._cleanup_worker(worker, task)
+        self.transcription_status.emit("Transcription annulée.")
         self.transcription_cancelled.emit(task)
 
     def _cleanup_worker(
