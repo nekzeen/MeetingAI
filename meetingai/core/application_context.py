@@ -115,6 +115,9 @@ class ApplicationContext:
             "speech_to_text_service",
             self.speech_to_text_service,
         )
+        self.service_registry.register(
+            "speech_to_text_factory", self.speech_to_text_factory
+        )
         self.service_registry.register("model_manager", self.model_manager)
         self.service_registry.register("worker_manager", self.worker_manager)
         self.service_registry.register("export_service", self.export_service)

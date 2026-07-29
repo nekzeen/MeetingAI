@@ -29,10 +29,13 @@ class TestSettingsWindow(unittest.TestCase):
             "theme": "light",
             "language": "fr",
             "provider": "faster-whisper",
+            "speech_to_text_providers": ["fake", "faster-whisper"],
             "model_name": "small",
             "device": "auto",
             "compute_type": "int8",
             "output_directory": "output",
+            "summarization_provider": "fake",
+            "summarization_providers": ["fake"],
         }
         self.window = SettingsWindow(self.initial_settings)
 
@@ -67,6 +70,12 @@ class TestSettingsWindow(unittest.TestCase):
         titles = [group.title() for group in groups]
         self.assertIn("Export", titles)
 
+    def test_summarization_group_exists(self) -> None:
+        """La section Résumé IA est présente."""
+        groups = self.window.findChildren(QGroupBox)
+        titles = [group.title() for group in groups]
+        self.assertIn("Résumé IA", titles)
+
     def _combo_items(self, combo: QComboBox) -> list[str]:
         """Retourne la liste des textes d'un QComboBox."""
         return [combo.itemText(i) for i in range(combo.count())]
@@ -91,15 +100,31 @@ class TestSettingsWindow(unittest.TestCase):
         self.assertEqual(settings["device"], "auto")
         self.assertEqual(settings["compute_type"], "int8")
         self.assertEqual(settings["output_directory"], "output")
+        self.assertEqual(settings["summarization_provider"], "fake")
+
+    def _find_combo_by_items(self, expected_items: set[str]) -> QComboBox:
+        """Retourne le QComboBox dont tous les items attendus sont présents."""
+        for combo in self.window.findChildren(QComboBox):
+            items = set(self._combo_items(combo))
+            if expected_items <= items:
+                return combo
+        raise AssertionError("QComboBox non trouvé")
 
     def test_get_settings_reflects_changes(self) -> None:
         """get_settings retourne les valeurs modifiées."""
-        combos = self.window.findChildren(QComboBox)
-        combos[0].setCurrentText("dark")
-        combos[1].setCurrentText("en")
-        combos[2].setCurrentText("fake")
-        combos[3].setCurrentText("cpu")
-        combos[4].setCurrentText("float16")
+        theme_combo = self._find_combo_by_items({"light", "dark"})
+        language_combo = self._find_combo_by_items({"fr", "en"})
+        provider_combo = self._find_combo_by_items({"fake", "faster-whisper"})
+        device_combo = self._find_combo_by_items({"auto", "cpu", "cuda"})
+        compute_combo = self._find_combo_by_items(
+            {"int8", "float16", "int16", "float32"}
+        )
+
+        theme_combo.setCurrentText("dark")
+        language_combo.setCurrentText("en")
+        provider_combo.setCurrentText("fake")
+        device_combo.setCurrentText("cpu")
+        compute_combo.setCurrentText("float16")
 
         edits = self.window.findChildren(QLineEdit)
         model_edit = edits[0]
@@ -116,6 +141,23 @@ class TestSettingsWindow(unittest.TestCase):
         self.assertEqual(settings["device"], "cpu")
         self.assertEqual(settings["compute_type"], "float16")
         self.assertEqual(settings["output_directory"], "custom")
+        self.assertEqual(settings["summarization_provider"], "fake")
+
+    def test_get_settings_reflects_summarization_provider_change(self) -> None:
+        """get_settings reflète le changement de provider de résumé."""
+        self.window.close()
+        self.window.deleteLater()
+        settings = self.initial_settings.copy()
+        settings["summarization_providers"] = ["fake", "custom"]
+        settings["summarization_provider"] = "fake"
+        self.window = SettingsWindow(settings)
+
+        summary_combo = self._find_combo_by_items({"fake", "custom"})
+        summary_combo.setCurrentText("custom")
+
+        result = self.window.get_settings()
+
+        self.assertEqual(result["summarization_provider"], "custom")
 
     def test_has_ok_and_cancel_buttons(self) -> None:
         """La fenêtre dispose des boutons OK et Annuler."""

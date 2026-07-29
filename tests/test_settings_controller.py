@@ -6,6 +6,12 @@ from pathlib import Path
 
 from meetingai.config.config_manager import ConfigManager
 from meetingai.controllers.settings_controller import SettingsController
+from meetingai.services.speech_to_text.speech_to_text_factory import (
+    SpeechToTextFactory,
+)
+from meetingai.services.summarization.summarization_factory import (
+    SummarizationFactory,
+)
 
 
 class TestSettingsController(unittest.TestCase):
@@ -23,7 +29,14 @@ class TestSettingsController(unittest.TestCase):
         """Crée un contrôleur associé à une configuration temporaire."""
         config_path = Path(self._temp_dir.name) / "config.json"
         config_manager = ConfigManager(config_path)
-        return SettingsController(config_manager), config_manager
+        return (
+            SettingsController(
+                config_manager,
+                SpeechToTextFactory(),
+                SummarizationFactory(),
+            ),
+            config_manager,
+        )
 
     def test_load_settings_returns_current_values(self) -> None:
         """load_settings retourne les valeurs actuelles de la configuration."""
@@ -38,6 +51,7 @@ class TestSettingsController(unittest.TestCase):
         self.assertIn("device", settings)
         self.assertIn("compute_type", settings)
         self.assertIn("output_directory", settings)
+        self.assertIn("summarization_provider", settings)
 
     def test_save_settings_persists_values(self) -> None:
         """save_settings persiste les nouvelles valeurs dans ConfigManager."""
@@ -50,6 +64,7 @@ class TestSettingsController(unittest.TestCase):
             "device": "cpu",
             "compute_type": "float16",
             "output_directory": "custom_output",
+            "summarization_provider": "fake",
         }
 
         controller.save_settings(new_settings)
@@ -61,6 +76,9 @@ class TestSettingsController(unittest.TestCase):
         self.assertEqual(config_manager.get("speech_to_text.device"), "cpu")
         self.assertEqual(config_manager.get("speech_to_text.compute_type"), "float16")
         self.assertEqual(config_manager.get("export.output_directory"), "custom_output")
+        self.assertEqual(
+            config_manager.get("summarization.provider"), "fake"
+        )
 
     def test_save_settings_rejects_invalid_theme(self) -> None:
         """save_settings lève une erreur si le thème n'est pas supporté."""
@@ -71,11 +89,20 @@ class TestSettingsController(unittest.TestCase):
         with self.assertRaises(ValueError):
             controller.save_settings(settings)
 
-    def test_save_settings_rejects_invalid_provider(self) -> None:
-        """save_settings lève une erreur si le provider n'est pas supporté."""
+    def test_save_settings_rejects_invalid_speech_provider(self) -> None:
+        """save_settings lève une erreur si le provider STT n'est pas supporté."""
         controller, _ = self._build_controller()
         settings = controller.load_settings()
         settings["provider"] = "unknown"
+
+        with self.assertRaises(ValueError):
+            controller.save_settings(settings)
+
+    def test_save_settings_rejects_invalid_summarization_provider(self) -> None:
+        """save_settings lève une erreur si le provider de résumé n'est pas supporté."""
+        controller, _ = self._build_controller()
+        settings = controller.load_settings()
+        settings["summarization_provider"] = "unknown"
 
         with self.assertRaises(ValueError):
             controller.save_settings(settings)
@@ -104,8 +131,11 @@ class TestSettingsController(unittest.TestCase):
 
         self.assertIn("light", controller.available_themes())
         self.assertIn("dark", controller.available_themes())
-        self.assertIn("fake", controller.available_providers())
-        self.assertIn("faster-whisper", controller.available_providers())
+        self.assertIn("fake", controller.available_speech_to_text_providers())
+        self.assertIn(
+            "faster-whisper", controller.available_speech_to_text_providers()
+        )
+        self.assertIn("fake", controller.available_summarization_providers())
         self.assertIn("cpu", controller.available_devices())
         self.assertIn("int8", controller.available_compute_types())
 

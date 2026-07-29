@@ -48,6 +48,10 @@ class SpeechToTextFactory:
         """
         self._providers[name] = builder
 
+    def available_providers(self) -> list[str]:
+        """Retourne la liste des providers enregistrés."""
+        return sorted(self._providers.keys())
+
     def create(self, config: SpeechToTextConfiguration) -> SpeechToTextService:
         """Instancie le service correspondant à la configuration.
 

@@ -66,6 +66,13 @@ class SettingsWindow(QDialog):
         self._stt_layout.addRow("Device :", self._device_combo)
         self._stt_layout.addRow("Compute Type :", self._compute_type_combo)
 
+        self._summarization_group = QGroupBox("Résumé IA", self)
+        self._summarization_layout = QFormLayout(self._summarization_group)
+        self._summarization_provider_combo = QComboBox(self._summarization_group)
+        self._summarization_layout.addRow(
+            "Provider :", self._summarization_provider_combo
+        )
+
         self._export_group = QGroupBox("Export", self)
         self._export_layout = QFormLayout(self._export_group)
         self._output_directory_edit = QLineEdit(self._export_group)
@@ -88,6 +95,7 @@ class SettingsWindow(QDialog):
 
         self._layout.addWidget(self._general_group)
         self._layout.addWidget(self._stt_group)
+        self._layout.addWidget(self._summarization_group)
         self._layout.addWidget(self._export_group)
         self._layout.addStretch()
         self._layout.addWidget(self._button_box)
@@ -100,10 +108,19 @@ class SettingsWindow(QDialog):
         self._language_combo.addItems(["fr", "en"])
         self._language_combo.setCurrentText(self._initial_settings["language"])
 
-        self._provider_combo.addItems(["fake", "faster-whisper"])
+        self._provider_combo.addItems(
+            self._initial_settings["speech_to_text_providers"]
+        )
         self._provider_combo.setCurrentText(self._initial_settings["provider"])
 
         self._model_edit.setText(self._initial_settings["model_name"])
+
+        self._summarization_provider_combo.addItems(
+            self._initial_settings["summarization_providers"]
+        )
+        self._summarization_provider_combo.setCurrentText(
+            self._initial_settings["summarization_provider"]
+        )
 
         self._device_combo.addItems(["auto", "cpu", "cuda"])
         self._device_combo.setCurrentText(self._initial_settings["device"])
@@ -142,4 +159,5 @@ class SettingsWindow(QDialog):
             "device": self._device_combo.currentText(),
             "compute_type": self._compute_type_combo.currentText(),
             "output_directory": self._output_directory_edit.text(),
+            "summarization_provider": self._summarization_provider_combo.currentText(),
         }

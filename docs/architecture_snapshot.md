@@ -150,3 +150,25 @@ Chaque futur provider n'a qu'à hériter de ``SummarizationService`` et être en
 ### Indépendance du provider
 
 Le contrôleur ne dépend d'aucun provider concret : il utilise ``SummarizationFactory`` et la clé ``summarization.provider`` de la configuration. Seul le provider ``fake`` est activé dans cette version.
+
+---
+
+## Gestion des providers IA
+
+### Configuration
+
+La fenêtre de paramètres expose désormais deux sections alimentées dynamiquement par les factories :
+
+- **Speech-To-Text** : la liste des providers provient de ``SpeechToTextFactory.available_providers()``.
+- **Résumé IA** : la liste des providers provient de ``SummarizationFactory.available_providers()``.
+
+`SettingsController` charge les listes depuis les factories, les transmet à `SettingsWindow`, et persiste les choix via `ConfigManager`. Aucune valeur n'est codée en dur dans la vue.
+
+### Persistance
+
+Les clés utilisées sont :
+
+- ``speech_to_text.provider`` pour la transcription ;
+- ``summarization.provider`` pour le résumé IA.
+
+L'ajout d'un futur provider (OpenAI, Ollama...) n'implique qu'une inscription dans la factory correspondante ; l'interface se met automatiquement à jour.

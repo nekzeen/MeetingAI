@@ -98,7 +98,11 @@ class MainWindow(QMainWindow):
         if self._context is None:
             return
 
-        controller = SettingsController(self._context.config)
+        controller = SettingsController(
+            self._context.config,
+            self._context.speech_to_text_factory,
+            self._context.summarization_factory,
+        )
         dialog = SettingsWindow(
             initial_settings=controller.load_settings(),
             parent=self,
