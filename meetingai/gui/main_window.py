@@ -92,6 +92,12 @@ class MainWindow(QMainWindow):
                 self._action_manager.summarize_action.triggered.connect(
                     self._context.summarization_controller.summarize_current_transcription
                 )
+            if self._context.pipeline_controller is not None:
+                self._action_manager.connect_pipeline(
+                    lambda: self._context.pipeline_controller.start(
+                        self._context.media_controller.current_media
+                    )
+                )
 
     def _open_settings(self) -> None:
         """Ouvre la fenêtre de paramètres et persiste les modifications."""
@@ -132,6 +138,8 @@ class MainWindow(QMainWindow):
         menu_bar.addMenu(tools_menu)
         tools_menu.addAction(actions["transcribe"])
         tools_menu.addAction(actions["summarize"])
+        tools_menu.addAction(actions["pipeline"])
+        tools_menu.addSeparator()
         tools_menu.addAction(actions["preferences"])
 
         menu_bar.addMenu(QMenu("Affichage", self))

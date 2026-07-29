@@ -211,6 +211,44 @@ La méthode ``available_models()`` fait partie de l'interface ``SummarizationSer
 
 ---
 
+## Pipeline automatique
+
+### Objectif
+
+Le pipeline automatique enchaîne en une seule action la transcription, la génération du résumé IA et l'export du résultat. Il s'appuie exclusivement sur les contrôleurs existants sans dupliquer leur logique.
+
+### Composants
+
+- **`PipelineController`** (`meetingai/controllers/pipeline_controller.py`) : orchestre les étapes en connectant les signaux des contrôleurs dédiés.
+- **`TranscriptionController`** : exécute la transcription de manière asynchrone.
+- **`SummarizationController`** : génère le résumé IA dès que la transcription est prête.
+- **`ExportController`** : exporte la transcription au format TXT une fois le résumé produit.
+
+### Flux
+
+1. L'utilisateur déclenche l'action ``Traitement automatique`` dans le menu ``Outils``.
+2. `PipelineController.start(media)` lance la transcription.
+3. Sur ``transcription_ready`` :
+   - le pipeline émet ``pipeline_step_started(summarization)`` ;
+   - il appelle `SummarizationController.summarize_current_transcription()`.
+4. Sur ``summary_ready`` :
+   - le pipeline émet ``pipeline_step_started(export)`` ;
+   - il appelle `ExportController.export_txt()`.
+5. Sur ``export_succeeded``, le pipeline émet ``pipeline_succeeded`` avec le chemin du fichier exporté.
+6. Si une étape échoue, le pipeline s'arrête immédiatement et émet ``pipeline_failed`` avec le message d'erreur.
+
+### Signaux
+
+- `pipeline_started` : début du pipeline.
+- `pipeline_step_started(str)` : nom de l'étape en cours (``transcription``, ``summarization``, ``export``).
+- `pipeline_progress(int)` : progression de la transcription remontée durant le pipeline.
+- `pipeline_succeeded(list[str])` : liste des chemiers exportés.
+- `pipeline_failed(str)` : raison de l'échec.
+
+### Extensibilité
+
+Chaque étape reste un contrôleur dédié. Ajouter une nouvelle étape (traduction, analyse...) consiste à insérer un nouveau contrôleur entre `SummarizationController` et `ExportController` sans modifier les étapes existantes.
+
 ## Profils de résumé
 
 ### Définition

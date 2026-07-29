@@ -103,6 +103,7 @@ class TestActionManager(unittest.TestCase):
             "quit",
             "transcribe",
             "summarize",
+            "pipeline",
             "preferences",
             "about",
         }

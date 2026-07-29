@@ -51,6 +51,7 @@ class ActionManager:
         self.quit_action = QAction("Quitter", self._parent)
         self.transcribe_action = QAction("Transcrire", self._parent)
         self.summarize_action = QAction("Résumer la transcription", self._parent)
+        self.pipeline_action = QAction("Traitement automatique", self._parent)
         self.preferences_action = QAction("Préférences", self._parent)
         self.about_action = QAction("À propos", self._parent)
 
@@ -70,6 +71,7 @@ class ActionManager:
             "quit": self.quit_action,
             "transcribe": self.transcribe_action,
             "summarize": self.summarize_action,
+            "pipeline": self.pipeline_action,
             "preferences": self.preferences_action,
             "about": self.about_action,
         }
@@ -91,6 +93,15 @@ class ActionManager:
                 l'action.
         """
         self.transcribe_action.triggered.connect(slot)
+
+    def connect_pipeline(self, slot: Callable[[], None]) -> None:
+        """Connecte l'action ``Traitement automatique`` au slot fourni.
+
+        Args:
+            slot: Fonction sans argument appelée lors du déclenchement de
+                l'action.
+        """
+        self.pipeline_action.triggered.connect(slot)
 
     @classmethod
     def _reset_instance(cls) -> None:

@@ -13,6 +13,7 @@ from typing import Any
 from meetingai.config.config_manager import ConfigManager
 from meetingai.controllers.export_controller import ExportController
 from meetingai.controllers.media_controller import MediaController
+from meetingai.controllers.pipeline_controller import PipelineController
 from meetingai.controllers.summarization_controller import (
     SummarizationController,
 )
@@ -92,6 +93,11 @@ class ApplicationContext:
                 config_manager=self.config,
             )
         )
+        self.pipeline_controller: PipelineController = PipelineController(
+            transcription_controller=self.transcription_controller,
+            summarization_controller=self.summarization_controller,
+            export_controller=self.export_controller,
+        )
         self.transcription_controller.transcription_ready.connect(
             self.export_controller.on_transcription_ready
         )
@@ -129,6 +135,9 @@ class ApplicationContext:
         )
         self.service_registry.register(
             "summarization_controller", self.summarization_controller
+        )
+        self.service_registry.register(
+            "pipeline_controller", self.pipeline_controller
         )
 
     def get_service(self, name: str) -> Any:
