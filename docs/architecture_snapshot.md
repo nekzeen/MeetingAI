@@ -56,3 +56,25 @@ Le fichier `config/config.example.json` sert de modèle versionné : il présent
 - `config/config.json` est ignoré par Git (``.gitignore``) ;
 - `config/config.example.json` est versionné et mis à jour lorsque la structure de configuration évolue ;
 - `ConfigManager` crée automatiquement `config/config.json` avec les valeurs par défaut si le fichier est absent au démarrage.
+
+---
+
+## Fenêtre de paramètres
+
+### Vue
+
+`SettingsWindow` (`meetingai/gui/settings_window.py`) est une `QDialog` organisée en sections :
+
+- **Général** : thème, langue ;
+- **Speech-To-Text** : provider, modèle, device, compute type ;
+- **Export** : répertoire de sortie.
+
+La vue ne contient aucune logique métier. Elle se contente de collecter les valeurs via `get_settings()` et de les restituer à l'appelant.
+
+### Contrôleur
+
+`SettingsController` (`meetingai/controllers/settings_controller.py`) est responsable du chargement et de la sauvegarde des paramètres via `ConfigManager`. Il valide les valeurs avant persistance.
+
+### Intégration
+
+`MainWindow` ouvre la fenêtre de paramètres lors du déclenchement de l'action ``Préférences``. Elle charge les valeurs actuelles, affiche le dialogue, puis appelle `SettingsController.save_settings()` si l'utilisateur valide.

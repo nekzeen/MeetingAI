@@ -2,6 +2,7 @@
 
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
+    QDialog,
     QMainWindow,
     QMenu,
     QMenuBar,
@@ -9,8 +10,10 @@ from PySide6.QtWidgets import (
     QToolBar,
 )
 
+from meetingai.controllers.settings_controller import SettingsController
 from meetingai.core.application_context import ApplicationContext
 from meetingai.gui.action_manager import ActionManager
+from meetingai.gui.settings_window import SettingsWindow
 from meetingai.gui.workspace import Workspace
 
 
@@ -72,6 +75,22 @@ class MainWindow(QMainWindow):
                     self._context.media_controller.current_media
                 )
             )
+            self._action_manager.preferences_action.triggered.connect(
+                self._open_settings
+            )
+
+    def _open_settings(self) -> None:
+        """Ouvre la fenêtre de paramètres et persiste les modifications."""
+        if self._context is None:
+            return
+
+        controller = SettingsController(self._context.config)
+        dialog = SettingsWindow(
+            initial_settings=controller.load_settings(),
+            parent=self,
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            controller.save_settings(dialog.get_settings())
 
     def _setup_menu_bar(self) -> None:
         """Construit la barre de menus à partir de l'ActionManager."""
