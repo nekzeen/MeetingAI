@@ -78,3 +78,23 @@ La vue ne contient aucune logique métier. Elle se contente de collecter les val
 ### Intégration
 
 `MainWindow` ouvre la fenêtre de paramètres lors du déclenchement de l'action ``Préférences``. Elle charge les valeurs actuelles, affiche le dialogue, puis appelle `SettingsController.save_settings()` si l'utilisateur valide.
+
+---
+
+## Progression de la transcription
+
+### Principe
+
+La progression affichée à l'utilisateur est désormais calculée à partir de l'avancement réel de la transcription.
+
+### Flux
+
+1. **`FasterWhisperService.transcribe()`** accepte un `progress_callback`. Pendant l'itération sur les segments retournés par faster-whisper, il calcule le pourcentage d'avancement à partir du timestamp de fin du segment et de la durée totale du média.
+2. **`TranscriptionWorker`** passe une fonction de rappel à `SpeechToTextService.transcribe()` ; à chaque appel, elle émet le signal `progress` et met à jour `Task.update_progress()`.
+3. **`TranscriptionController`** relie le signal `progress` du worker à son propre signal `transcription_progress`, qui alimente l'interface graphique.
+4. **`FakeSpeechToTextService`** reste compatible : il signale simplement 100% de progression, car il n'y a pas de traitement réel à mesurer.
+
+### Limites
+
+- faster-whisper ne fournit pas de callback natif de progression. La progression est donc estimée à partir des segments produits.
+- La granularité dépend de la taille des segments : de courts fichiers audio peuvent passer directement de 0 à 100%.

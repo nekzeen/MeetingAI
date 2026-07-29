@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -251,17 +252,24 @@ class FasterWhisperService(SpeechToTextService):
                 f"Échec du téléchargement du modèle faster-whisper '{size}' : {exc}"
             ) from exc
 
-    def transcribe(self, media: MediaFile, task: Task) -> TranscriptionResult:
+    def transcribe(
+        self,
+        media: MediaFile,
+        task: Task,
+        progress_callback: Callable[[int], None] | None = None,
+    ) -> TranscriptionResult:
         """Transcrit le média avec faster-whisper.
 
         Le modèle est chargé automatiquement lors du premier appel s'il ne
         l'est pas déjà, puis réutilisé pour les transcriptions suivantes.
+        L'avancement est notifié via ``progress_callback`` à partir des
+        segments retournés par faster-whisper.
 
         Args:
             media: Média à transcrire.
-            task: Tâche associée. Son état sera mis à jour avec la progression
-                lorsque celle-ci sera implémentée ; actuellement elle est
-                simplement marquée comme terminée en cas de succès.
+            task: Tâche associée. Son état sera mis à jour avec la progression.
+            progress_callback: Fonction optionnelle appelée avec un pourcentage
+                d'avancement entre 0 et 100.
 
         Returns:
             Résultat complet de la transcription.
@@ -281,7 +289,26 @@ class FasterWhisperService(SpeechToTextService):
                 beam_size=5,
                 condition_on_previous_text=False,
             )
-            text_parts = [segment.text for segment in segments]
+
+            total_duration = float(getattr(info, "duration", 0.0) or 0.0)
+            last_reported_progress = -1
+            text_parts: list[str] = []
+
+            for segment in segments:
+                text_parts.append(segment.text)
+                if progress_callback is not None and total_duration > 0:
+                    segment_end = getattr(segment, "end", None)
+                    if isinstance(segment_end, (int, float)):
+                        progress = int(
+                            min(segment_end / total_duration * 100, 100)
+                        )
+                        if progress != last_reported_progress:
+                            progress_callback(progress)
+                            last_reported_progress = progress
+
+            if progress_callback is not None:
+                progress_callback(100)
+
             full_text = " ".join(text_parts).strip()
             processing_time = time.perf_counter() - start_time
 
@@ -290,7 +317,7 @@ class FasterWhisperService(SpeechToTextService):
             return TranscriptionResult(
                 text=full_text,
                 language=info.language or "unknown",
-                duration=getattr(info, "duration", 0.0),
+                duration=total_duration,
                 model=self._model_size,
                 processing_time=processing_time,
                 metadata={

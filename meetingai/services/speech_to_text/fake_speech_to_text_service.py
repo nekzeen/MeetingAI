@@ -1,6 +1,7 @@
 """Implémentation fictive de SpeechToTextService pour valider le flux."""
 
 import uuid
+from collections.abc import Callable
 
 from meetingai.core.task import Task
 from meetingai.models.media_file import MediaFile
@@ -28,16 +29,24 @@ class FakeSpeechToTextService(SpeechToTextService):
     _MODEL: str = "fake"
     _VERSION: str = "1.0.0"
 
-    def transcribe(self, media: MediaFile, task: Task) -> TranscriptionResult:
+    def transcribe(
+        self,
+        media: MediaFile,
+        task: Task,
+        progress_callback: Callable[[int], None] | None = None,
+    ) -> TranscriptionResult:
         """Retourne un résultat de transcription fictif.
 
         Args:
             media: Média à transcrire.
             task: Tâche associée.
+            progress_callback: Fonction optionnelle appelée avec l'avancement.
 
         Returns:
             Résultat de transcription simulé.
         """
+        if progress_callback is not None:
+            progress_callback(100)
         return TranscriptionResult(
             text=self._FIXED_TEXT,
             language=self._LANGUAGE,

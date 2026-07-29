@@ -83,6 +83,47 @@ class TestTranscriptionWorker(unittest.TestCase):
         )
         self.assertEqual(task.status, TaskStatus.COMPLETED)
         self.assertIs(task.result, expected)
+        service.transcribe.assert_called_once()
+
+    def test_worker_emits_progress_values_from_service(self) -> None:
+        """Le worker propage les valeurs de progression du service."""
+        task = Task(name="transcription")
+        service = MagicMock(spec=SpeechToTextService)
+        expected = TranscriptionResult(
+            text="Bonjour",
+            language="fr",
+            duration=1.0,
+            model="fake",
+            processing_time=0.1,
+            metadata={},
+        )
+
+        def _transcribe_with_progress(
+            media: object,
+            task: object,
+            progress_callback: object,
+        ) -> TranscriptionResult:
+            progress_callback(25)
+            progress_callback(50)
+            progress_callback(75)
+            return expected
+
+        service.transcribe.side_effect = _transcribe_with_progress
+        media = self._build_media()
+
+        worker = TranscriptionWorker(task, service, media)
+        spy_progress = QSignalSpy(worker.progress)
+        spy_finished = QSignalSpy(worker.finished)
+
+        worker.start()
+        self.assertTrue(self._wait_for_signal(spy_finished, timeout_ms=2000))
+        self.assertTrue(self._wait_for_thread(worker, timeout_ms=2000))
+
+        progress_values = [spy_progress.at(i)[0] for i in range(spy_progress.count())]
+        self.assertIn(25, progress_values)
+        self.assertIn(50, progress_values)
+        self.assertIn(75, progress_values)
+        self.assertIn(100, progress_values)
 
     def test_worker_emits_failed_on_error(self) -> None:
         """Le worker émet failed en cas d'erreur du service."""

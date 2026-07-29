@@ -39,6 +39,23 @@ class TestFakeSpeechToTextService(unittest.TestCase):
         self.assertEqual(result.language, "fr")
         self.assertTrue(service.is_available())
 
+    def test_transcribe_reports_full_progress(self) -> None:
+        """La transcription simulée notifie 100% de progression."""
+        service = FakeSpeechToTextService()
+        media = MediaFile(
+            path=Path("/tmp/audio.mp3").resolve(),
+            name="audio.mp3",
+            extension=".mp3",
+            size=1,
+            media_type=MediaType.AUDIO,
+        )
+        task = Task(name="transcription")
+        progress_values: list[int] = []
+
+        service.transcribe(media, task, progress_callback=progress_values.append)
+
+        self.assertEqual(progress_values, [100])
+
 
 class TestTranscriptWidgetDisplay(unittest.TestCase):
     """Tests d'affichage du résultat dans TranscriptWidget."""

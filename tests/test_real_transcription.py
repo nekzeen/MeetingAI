@@ -60,6 +60,8 @@ class TestFasterWhisperTranscription(unittest.TestCase):
         """Construit un modèle faster-whisper simulé."""
         segment = MagicMock()
         segment.text = " Bonjour "
+        segment.start = 0.0
+        segment.end = 1.5
         info = MagicMock()
         info.language = "fr"
         info.duration = 1.5

@@ -238,6 +238,91 @@ class TestFasterWhisperService(unittest.TestCase):
         "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
         new=MagicMock(),
     )
+    def test_transcribe_reports_progress_via_callback(self) -> None:
+        """transcribe notifie la progression à partir des segments."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model_dir = Path(tmp_dir) / "tiny"
+            model_dir.mkdir()
+            service = FasterWhisperService(
+                model_size="tiny",
+                models_directory=tmp_dir,
+            )
+            media = MagicMock(spec=MediaFile)
+            media.path = Path("/tmp/audio.mp3")
+            task = MagicMock(spec=Task)
+
+            from meetingai.services.speech_to_text import faster_whisper_service
+
+            segment1 = MagicMock()
+            segment1.text = " Bonjour "
+            segment1.start = 0.0
+            segment1.end = 0.5
+            segment2 = MagicMock()
+            segment2.text = " le monde "
+            segment2.start = 0.5
+            segment2.end = 1.0
+            info = MagicMock()
+            info.language = "fr"
+            info.duration = 1.0
+            info.language_probability = 0.95
+            faster_whisper_service._FASTER_WHISPER.WhisperModel.return_value.transcribe.return_value = (
+                [segment1, segment2],
+                info,
+            )
+
+            progress_values: list[int] = []
+
+            service.transcribe(
+                media,
+                task,
+                progress_callback=progress_values.append,
+            )
+
+            self.assertIn(50, progress_values)
+            self.assertIn(100, progress_values)
+
+    @patch(
+        "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
+        new=MagicMock(),
+    )
+    def test_transcribe_sends_final_progress_when_no_segments(self) -> None:
+        """transcribe envoie 100% même sans segment."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model_dir = Path(tmp_dir) / "tiny"
+            model_dir.mkdir()
+            service = FasterWhisperService(
+                model_size="tiny",
+                models_directory=tmp_dir,
+            )
+            media = MagicMock(spec=MediaFile)
+            media.path = Path("/tmp/audio.mp3")
+            task = MagicMock(spec=Task)
+
+            from meetingai.services.speech_to_text import faster_whisper_service
+
+            info = MagicMock()
+            info.language = "fr"
+            info.duration = 1.0
+            info.language_probability = 0.95
+            faster_whisper_service._FASTER_WHISPER.WhisperModel.return_value.transcribe.return_value = (
+                [],
+                info,
+            )
+
+            progress_values: list[int] = []
+
+            service.transcribe(
+                media,
+                task,
+                progress_callback=progress_values.append,
+            )
+
+            self.assertEqual(progress_values, [100])
+
+    @patch(
+        "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
+        new=MagicMock(),
+    )
     def test_load_model_uses_local_files_only(self) -> None:
         """load_model charge le modèle depuis le répertoire configuré."""
         with tempfile.TemporaryDirectory() as tmp_dir:

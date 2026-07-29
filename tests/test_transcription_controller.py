@@ -109,7 +109,43 @@ class TestTranscriptionController(unittest.TestCase):
         self.assertEqual(spy_ready.count(), 1)
         self.assertEqual(spy_ready.at(0)[0], expected)
         self.assertTrue(spy_progress.count() >= 1)
-        self.speech_service.transcribe.assert_called_once_with(self.media, self.task)
+        self.speech_service.transcribe.assert_called_once()
+
+    def test_transcribe_propagates_progress_values(self) -> None:
+        """transcribe propage les valeurs de progression jusqu'à l'interface."""
+        expected = TranscriptionResult(
+            text="Résultat",
+            language="fr",
+            duration=1.0,
+            model="fake",
+            processing_time=0.1,
+            metadata={},
+        )
+
+        def _transcribe_with_progress(
+            media: object,
+            task: object,
+            progress_callback: object,
+        ) -> TranscriptionResult:
+            progress_callback(25)
+            progress_callback(50)
+            progress_callback(75)
+            return expected
+
+        self.speech_service.transcribe.side_effect = _transcribe_with_progress
+
+        spy_progress = QSignalSpy(self.controller.transcription_progress)
+        spy_ready = QSignalSpy(self.controller.transcription_ready)
+        self.controller.transcribe(self.media)
+
+        self._wait_for_signal(spy_ready, timeout_ms=2000)
+        progress_values = [
+            spy_progress.at(i)[0] for i in range(spy_progress.count())
+        ]
+        self.assertIn(25, progress_values)
+        self.assertIn(50, progress_values)
+        self.assertIn(75, progress_values)
+        self.assertIn(100, progress_values)
 
     def test_transcribe_emits_failed_on_error(self) -> None:
         """transcribe émet failed en cas d'erreur du service."""

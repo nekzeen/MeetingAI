@@ -106,9 +106,15 @@ class TranscriptionWorker(QObject):
         self.progress.emit(0)
         try:
             self._task.status = TaskStatus.RUNNING
+
+            def _progress_callback(value: int) -> None:
+                self.progress.emit(value)
+                self._task.update_progress(value)
+
             result: TranscriptionResult = self._service.transcribe(
                 self._media,
                 self._task,
+                progress_callback=_progress_callback,
             )
             if self._is_cancelled:
                 self._task.status = TaskStatus.CANCELLED

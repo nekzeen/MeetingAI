@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import Any
 
 from meetingai.core.task import Task
@@ -22,12 +23,19 @@ class SpeechToTextService(ABC):
     """
 
     @abstractmethod
-    def transcribe(self, media: MediaFile, task: Task) -> TranscriptionResult:
+    def transcribe(
+        self,
+        media: MediaFile,
+        task: Task,
+        progress_callback: Callable[[int], None] | None = None,
+    ) -> TranscriptionResult:
         """Lance la transcription d'un média.
 
         Args:
             media: Média à transcrire.
             task: Tâche associée permettant de suivre la progression.
+            progress_callback: Fonction optionnelle appelée avec un pourcentage
+                d'avancement entre 0 et 100.
 
         Returns:
             Résultat de la transcription.
@@ -67,7 +75,12 @@ class NullSpeechToTextService(SpeechToTextService):
     configuration de l'utilisateur.
     """
 
-    def transcribe(self, media: MediaFile, task: Task) -> TranscriptionResult:
+    def transcribe(
+        self,
+        media: MediaFile,
+        task: Task,
+        progress_callback: Callable[[int], None] | None = None,
+    ) -> TranscriptionResult:
         """Lève NotImplementedError car aucun moteur n'est installé."""
         raise NotImplementedError(
             "Aucun moteur Speech-To-Text n'est configuré."
