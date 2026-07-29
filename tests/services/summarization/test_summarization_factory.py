@@ -5,6 +5,9 @@ import unittest
 from meetingai.services.summarization.fake_summarization_service import (
     FakeSummarizationService,
 )
+from meetingai.services.summarization.ollama_summarization_service import (
+    OllamaSummarizationService,
+)
 from meetingai.services.summarization.summary_result import SummaryResult
 from meetingai.services.summarization.summarization_factory import (
     SummarizationFactory,
@@ -36,6 +39,16 @@ class TestSummarizationFactory(unittest.TestCase):
         service = self.factory.create("fake")
 
         self.assertIsInstance(service, FakeSummarizationService)
+
+    def test_ollama_provider_is_registered(self) -> None:
+        """Le provider ``ollama`` est enregistré par défaut."""
+        self.assertIn("ollama", self.factory.available_providers())
+
+    def test_create_ollama_returns_ollama_service(self) -> None:
+        """create('ollama') retourne une instance de OllamaSummarizationService."""
+        service = self.factory.create("ollama")
+
+        self.assertIsInstance(service, OllamaSummarizationService)
 
     def test_create_unknown_provider_raises(self) -> None:
         """create avec un provider inconnu lève ValueError."""

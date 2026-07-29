@@ -22,6 +22,9 @@
         "level": "INFO"
     },
     "summarization": {
-        "provider": "fake"
+        "provider": "fake",
+        "ollama_url": "http://localhost:11434",
+        "ollama_model": "llama3.2",
+        "ollama_timeout": 30
     }
 }

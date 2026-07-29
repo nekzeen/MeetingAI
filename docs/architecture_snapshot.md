@@ -171,4 +171,24 @@ Les clés utilisées sont :
 - ``speech_to_text.provider`` pour la transcription ;
 - ``summarization.provider`` pour le résumé IA.
 
-L'ajout d'un futur provider (OpenAI, Ollama...) n'implique qu'une inscription dans la factory correspondante ; l'interface se met automatiquement à jour.
+L'ajout d'un futur provider n'implique qu'une inscription dans la factory correspondante ; l'interface se met automatiquement à jour.
+
+---
+
+## Provider Ollama
+
+### Implémentation
+
+`OllamaSummarizationService` est le premier provider réel de résumé IA :
+
+- Appelle les endpoints HTTP ``/api/tags`` (disponibilité) et ``/api/generate`` (génération).
+- Paramètres configurables via ``ConfigManager`` :
+  - ``summarization.ollama_url`` (défaut : ``http://localhost:11434``)
+  - ``summarization.ollama_model`` (défaut : ``llama3.2``)
+  - ``summarization.ollama_timeout`` (défaut : ``30``)
+- Retourne un ``SummaryResult`` avec le texte produit par le modèle.
+- Gère les erreurs réseau, les délais d'attente et les réponses JSON invalides en levant ``RuntimeError``.
+
+### Intégration
+
+Le provider est automatiquement enregistré dans ``SummarizationFactory``. Le contrôleur l'instancie avec la configuration courante lorsque ``summarization.provider`` vaut ``ollama``. Aucune modification structurelle du contrôleur ou de l'interface n'a été nécessaire.

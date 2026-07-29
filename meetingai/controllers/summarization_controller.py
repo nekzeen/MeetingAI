@@ -62,7 +62,7 @@ class SummarizationController(QObject):
 
         provider_name = self._config.get("summarization.provider") or "fake"
         try:
-            service = self._factory.create(provider_name)
+            service = self._factory.create(provider_name, config=self._config)
             summary = service.summarize(self._last_transcription.text)
             self.summary_ready.emit(summary)
         except Exception as exc:

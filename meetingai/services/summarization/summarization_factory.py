@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from meetingai.config.config_manager import ConfigManager
 from meetingai.services.summarization.fake_summarization_service import (
     FakeSummarizationService,
+)
+from meetingai.services.summarization.ollama_summarization_service import (
+    OllamaSummarizationService,
 )
 from meetingai.services.summarization.summarization_service import (
     SummarizationService,
@@ -22,6 +26,7 @@ class SummarizationFactory:
         """Initialise la factory avec les providers par défaut."""
         self._providers: dict[str, type[SummarizationService]] = {
             "fake": FakeSummarizationService,
+            "ollama": OllamaSummarizationService,
         }
 
     def register_provider(
@@ -41,11 +46,17 @@ class SummarizationFactory:
         """Retourne la liste des providers enregistrés."""
         return sorted(self._providers.keys())
 
-    def create(self, provider_name: str) -> SummarizationService:
+    def create(
+        self,
+        provider_name: str,
+        config: ConfigManager | None = None,
+    ) -> SummarizationService:
         """Instancie le provider demandé.
 
         Args:
             provider_name: Identifiant du provider.
+            config: Gestionnaire de configuration pour les providers en
+                ayant besoin.
 
         Returns:
             Instance du provider de résumé IA.
@@ -57,5 +68,11 @@ class SummarizationFactory:
         if provider_class is None:
             raise ValueError(
                 f"Provider de résumé IA inconnu : {provider_name}"
+            )
+        if provider_name == "ollama" and config is not None:
+            return OllamaSummarizationService(
+                base_url=config.get("summarization.ollama_url"),
+                model=config.get("summarization.ollama_model"),
+                timeout=config.get("summarization.ollama_timeout"),
             )
         return provider_class()
