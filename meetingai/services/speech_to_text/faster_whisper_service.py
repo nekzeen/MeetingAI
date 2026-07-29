@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+
+_LOGGER = logging.getLogger(__name__)
 
 from meetingai.core.task import Task
 from meetingai.models.media_file import MediaFile
@@ -33,15 +36,18 @@ class FasterWhisperService(SpeechToTextService):
     charge un modèle présent sur le disque local, transcrit un média et retourne
     un ``TranscriptionResult`` complet.
 
-    Aucun téléchargement automatique n'est réalisé lors de la transcription :
-    ``local_files_only`` est systématiquement activé. Le modèle est recherché
-    dans ``models_directory``. Une méthode ``download_model()`` est fournie pour
-    un téléchargement explicite, mais elle n'est jamais appelée automatiquement.
+    Si un répertoire local ``models_directory / model_size`` existe, il est
+    utilisé en priorité avec ``local_files_only=True``. Sinon, le mécanisme
+    natif de téléchargement/cache de ``faster-whisper`` est utilisé.
+
+    Lorsque le périphérique demandé est ``cuda`` ou ``auto`` et que
+    l'initialisation échoue (driver/cuBLAS absent...), le service bascule
+    automatiquement sur ``cpu`` avec ``int8`` et journalise l'événement.
 
     Args:
         model_size: Taille ou chemin du modèle Whisper à utiliser.
-        models_directory: Répertoire racine contenant les modèles locaux.
-        device: Périphérique d'exécution (``cpu`` ou ``cuda``).
+        models_directory: Répertoire racine des modèles et du cache.
+        device: Périphérique d'exécution (``auto``, ``cpu`` ou ``cuda``).
         compute_type: Type de calcul (``int8``, ``float16``, etc.).
     """
 
@@ -167,10 +173,56 @@ class FasterWhisperService(SpeechToTextService):
         self._compute_type = compute_type
         self._model: Any | None = None
         self._model_lock = threading.Lock()
+        self._used_cpu_fallback: bool = False
 
     def _resolve_model_path(self) -> Path:
         """Retourne le chemin local attendu pour le modèle configuré."""
         return self._models_directory / self._model_size
+
+    def _is_cuda_error(self, exc: Exception) -> bool:
+        """Indique si une exception correspond à un échec d'initialisation CUDA."""
+        message = str(exc).lower()
+        return any(
+            keyword in message
+            for keyword in (
+                "cublas",
+                "cudnn",
+                "cuda",
+                "cuda_runtime",
+                "nvrtc",
+                "could not load",
+                "not available",
+            )
+        )
+
+    def _build_model(
+        self,
+        device: str,
+        compute_type: str,
+    ) -> Any:
+        """Construit une instance ``WhisperModel`` selon le périphérique choisi.
+
+        Si un répertoire local existe, il est utilisé avec
+        ``local_files_only=True``. Sinon, le mécanisme natif de
+        ``faster-whisper`` est utilisé.
+        """
+        local_model_path = self._resolve_model_path()
+
+        if local_model_path.exists():
+            return _FASTER_WHISPER.WhisperModel(
+                str(local_model_path),
+                device=device,
+                compute_type=compute_type,
+                local_files_only=True,
+            )
+
+        return _FASTER_WHISPER.WhisperModel(
+            self._model_size,
+            device=device,
+            compute_type=compute_type,
+            download_root=str(self._models_directory),
+            local_files_only=False,
+        )
 
     def load_model(self) -> None:
         """Charge le modèle faster-whisper.
@@ -179,6 +231,10 @@ class FasterWhisperService(SpeechToTextService):
         utilisé en priorité. Sinon, le mécanisme natif de ``faster-whisper`` est
         utilisé : le modèle est téléchargé dans le cache configuré par
         ``download_root`` puis réutilisé pour les appels suivants.
+
+        Lorsque le périphérique configuré est ``cuda`` ou ``auto`` et que
+        l'initialisation échoue sur un problème CUDA (driver, cuBLAS...), le
+        service tente de recharger le modèle sur ``cpu`` avec ``int8``.
 
         Raises:
             RuntimeError: Si ``faster-whisper`` n'est pas installé ou si le
@@ -189,33 +245,54 @@ class FasterWhisperService(SpeechToTextService):
                 "La bibliothèque faster-whisper n'est pas installée."
             )
 
-        local_model_path = self._resolve_model_path()
-
         try:
-            if local_model_path.exists():
-                self._model = _FASTER_WHISPER.WhisperModel(
-                    str(local_model_path),
-                    device=self._device,
-                    compute_type=self._compute_type,
-                    local_files_only=True,
-                )
-            else:
-                self._model = _FASTER_WHISPER.WhisperModel(
-                    self._model_size,
-                    device=self._device,
-                    compute_type=self._compute_type,
-                    download_root=str(self._models_directory),
-                    local_files_only=False,
-                )
+            self._model = self._build_model(
+                device=self._device,
+                compute_type=self._compute_type,
+            )
         except Exception as exc:
-            raise RuntimeError(
-                f"Impossible de charger le modèle faster-whisper "
-                f"'{self._model_size}'. Vérifiez votre connexion réseau, "
-                f"l'accès au répertoire {self._models_directory}, ou téléchargez "
-                f"le modèle explicitement avec :\n"
-                f"FasterWhisperService.download_model("
-                f"'{self._model_size}', '{self._models_directory}')"
-            ) from exc
+            if self._device == "cpu" or self._used_cpu_fallback:
+                raise RuntimeError(
+                    f"Impossible de charger le modèle faster-whisper "
+                    f"'{self._model_size}'. Vérifiez votre connexion réseau, "
+                    f"l'accès au répertoire {self._models_directory}, ou "
+                    f"téléchargez le modèle explicitement avec :\n"
+                    f"FasterWhisperService.download_model("
+                    f"'{self._model_size}', '{self._models_directory}')"
+                ) from exc
+
+            failure_message = (
+                "Initialisation CUDA échouée"
+                if self._is_cuda_error(exc)
+                else f"Échec de l'initialisation sur le périphérique '{self._device}'"
+            )
+            _LOGGER.warning(
+                "%s (%s). Basculement sur CPU avec int8.",
+                failure_message,
+                exc,
+            )
+
+            try:
+                self._model = self._build_model(
+                    device="cpu",
+                    compute_type="int8",
+                )
+            except Exception as cpu_exc:
+                raise RuntimeError(
+                    f"Impossible de charger le modèle faster-whisper "
+                    f"'{self._model_size}' sur CPU après échec CUDA. "
+                    f"Vérifiez votre connexion réseau, "
+                    f"l'accès au répertoire {self._models_directory}, ou "
+                    f"téléchargez le modèle explicitement avec :\n"
+                    f"FasterWhisperService.download_model("
+                    f"'{self._model_size}', '{self._models_directory}')"
+                ) from cpu_exc
+
+            self._used_cpu_fallback = True
+            _LOGGER.info(
+                "Modèle faster-whisper '%s' chargé sur CPU (fallback).",
+                self._model_size,
+            )
 
     def is_model_present(self) -> bool:
         """Indique si le répertoire du modèle configuré existe localement."""
@@ -327,17 +404,25 @@ class FasterWhisperService(SpeechToTextService):
 
             task.update_progress(100)
 
+            metadata: dict[str, Any] = {
+                "language_probability": getattr(
+                    info, "language_probability", None
+                ),
+            }
+            if self._used_cpu_fallback:
+                metadata["device"] = "cpu (fallback from cuda)"
+                metadata["warning"] = (
+                    "CUDA n'est pas disponible ou mal configuré ; "
+                    "la transcription a été exécutée en mode CPU."
+                )
+
             return TranscriptionResult(
                 text=full_text,
                 language=info.language or "unknown",
                 duration=total_duration,
                 model=self._model_size,
                 processing_time=processing_time,
-                metadata={
-                    "language_probability": getattr(
-                        info, "language_probability", None
-                    ),
-                },
+                metadata=metadata,
             )
         except Exception as exc:
             raise RuntimeError(

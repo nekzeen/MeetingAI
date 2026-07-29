@@ -16,6 +16,9 @@ from meetingai.core.application_context import ApplicationContext
 from meetingai.gui.action_manager import ActionManager
 from meetingai.gui.settings_window import SettingsWindow
 from meetingai.gui.workspace import Workspace
+from meetingai.services.speech_to_text.transcription_result import (
+    TranscriptionResult,
+)
 
 
 class MainWindow(QMainWindow):
@@ -100,6 +103,9 @@ class MainWindow(QMainWindow):
                     )
                 )
             if self._context.transcription_controller is not None:
+                self._context.transcription_controller.transcription_ready.connect(
+                    self._on_transcription_ready
+                )
                 self._context.transcription_controller.transcription_failed.connect(
                     self._show_transcription_error
                 )
@@ -107,6 +113,16 @@ class MainWindow(QMainWindow):
                 self._context.pipeline_controller.pipeline_failed.connect(
                     self._show_pipeline_error
                 )
+
+    def _on_transcription_ready(self, result: TranscriptionResult) -> None:
+        """Affiche un avertissement si la transcription a utilisé le fallback CPU."""
+        warning = result.metadata.get("warning")
+        if warning:
+            QMessageBox.information(
+                self,
+                "Mode CPU utilisé",
+                warning,
+            )
 
     def _show_transcription_error(self, message: str) -> None:
         """Affiche une boîte de dialogue en cas d'échec de transcription."""

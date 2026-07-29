@@ -124,6 +124,22 @@ Si le téléchargement échoue (pas de réseau, espace insuffisant...), une
 Cette erreur est remontée jusqu'à l'interface via `transcription_failed` (ou
 `pipeline_failed`) et présentée à l'utilisateur dans une boîte de dialogue.
 
+### Périphérique d'exécution
+
+Le périphérique configuré (`auto`, `cpu`, `cuda`) est transmis à
+`WhisperModel`. Si l'initialisation échoue avec un message lié à CUDA
+(`cublas`, `cudnn`, `cuda_runtime`, etc.) et que le périphérique demandé
+n'est pas déjà `cpu`, le service tente de recharger automatiquement le
+modèle sur `cpu` avec `int8`. Cet événement est :
+
+- journalisé en `WARNING` lors du basculement ;
+- journalisé en `INFO` une fois le modèle chargé en CPU ;
+- signalé à l'utilisateur via une boîte de dialogue lorsque le résultat de
+  transcription est prêt.
+
+Lorsque CUDA est correctement installé, aucun fallback n'est déclenché et
+le périphérique configuré est utilisé normalement.
+
 ### Responsabilités
 
 - **`FasterWhisperService`** est responsable du cycle de vie de son modèle : il le charge, le garde en cache et le réutilise.
