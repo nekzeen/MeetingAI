@@ -38,8 +38,8 @@ class TestFasterWhisperModelLoading(unittest.TestCase):
 
             self.assertIn("introuvable", str(context.exception).lower())
 
-    def test_transcribe_without_loaded_model_raises(self) -> None:
-        """transcribe refuse de s'exécuter si le modèle n'est pas chargé."""
+    def test_transcribe_reports_error_when_model_unavailable(self) -> None:
+        """transcribe retourne une erreur explicite si le modèle est indisponible."""
         service = FasterWhisperService()
         media = MagicMock(spec=MediaFile)
         task = MagicMock(spec=Task)
@@ -47,7 +47,10 @@ class TestFasterWhisperModelLoading(unittest.TestCase):
         with self.assertRaises(RuntimeError) as context:
             service.transcribe(media, task)
 
-        self.assertIn("pas chargé", str(context.exception).lower())
+        error_message = str(context.exception).lower()
+        self.assertTrue(
+            "bibliothèque" in error_message or "introuvable" in error_message
+        )
 
 
 class TestFasterWhisperTranscription(unittest.TestCase):

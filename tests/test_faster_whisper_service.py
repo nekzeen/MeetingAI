@@ -56,8 +56,100 @@ class TestFasterWhisperService(unittest.TestCase):
 
         self.assertTrue(service.is_available())
 
-    def test_transcribe_without_loaded_model_raises(self) -> None:
-        """transcribe échoue explicitement si aucun modèle n'est chargé."""
+    @patch(
+        "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
+        new=MagicMock(),
+    )
+    def test_transcribe_automatically_loads_model(self) -> None:
+        """transcribe charge le modèle automatiquement au premier appel."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model_dir = Path(tmp_dir) / "tiny"
+            model_dir.mkdir()
+            service = FasterWhisperService(
+                model_size="tiny",
+                models_directory=tmp_dir,
+            )
+            media = MagicMock(spec=MediaFile)
+            media.path = Path("/tmp/audio.mp3")
+            task = MagicMock(spec=Task)
+
+            from meetingai.services.speech_to_text import faster_whisper_service
+
+            mock_info = MagicMock()
+            mock_info.language = "fr"
+            mock_info.duration = 1.0
+            mock_info.language_probability = 0.9
+            faster_whisper_service._FASTER_WHISPER.WhisperModel.return_value.transcribe.return_value = (
+                [],
+                mock_info,
+            )
+
+            result = service.transcribe(media, task)
+
+            self.assertIsNotNone(service._model)
+            self.assertEqual(result.model, "tiny")
+
+            faster_whisper_service._FASTER_WHISPER.WhisperModel.assert_called_once_with(
+                str(model_dir),
+                device="cpu",
+                compute_type="int8",
+                local_files_only=True,
+            )
+
+    @patch(
+        "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
+        new=MagicMock(),
+    )
+    def test_transcribe_reuses_loaded_model(self) -> None:
+        """transcribe ne recharge pas le modèle s'il est déjà chargé."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model_dir = Path(tmp_dir) / "tiny"
+            model_dir.mkdir()
+            service = FasterWhisperService(
+                model_size="tiny",
+                models_directory=tmp_dir,
+            )
+            media = MagicMock(spec=MediaFile)
+            media.path = Path("/tmp/audio.mp3")
+            task = MagicMock(spec=Task)
+
+            from meetingai.services.speech_to_text import faster_whisper_service
+
+            mock_info = MagicMock()
+            mock_info.language = "fr"
+            mock_info.duration = 1.0
+            mock_info.language_probability = 0.9
+            faster_whisper_service._FASTER_WHISPER.WhisperModel.return_value.transcribe.return_value = (
+                [],
+                mock_info,
+            )
+
+            service.transcribe(media, task)
+            service.transcribe(media, task)
+
+            faster_whisper_service._FASTER_WHISPER.WhisperModel.assert_called_once()
+
+    def test_transcribe_reports_error_when_model_missing(self) -> None:
+        """transcribe retourne une erreur explicite si le modèle est introuvable."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = FasterWhisperService(
+                model_size="tiny",
+                models_directory=tmp_dir,
+            )
+            media = MagicMock(spec=MediaFile)
+            task = MagicMock(spec=Task)
+
+            with self.assertRaises(RuntimeError) as context:
+                service.transcribe(media, task)
+
+            self.assertIn("introuvable", str(context.exception).lower())
+
+    @patch(
+        "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
+        new=None,
+    )
+    def test_transcribe_reports_error_when_library_unavailable(self) -> None:
+        """transcribe retourne une erreur explicite si la bibliothèque est absente."""
         service = FasterWhisperService()
         media = MagicMock(spec=MediaFile)
         task = MagicMock(spec=Task)
@@ -65,7 +157,7 @@ class TestFasterWhisperService(unittest.TestCase):
         with self.assertRaises(RuntimeError) as context:
             service.transcribe(media, task)
 
-        self.assertIn("modèle faster-whisper", str(context.exception).lower())
+        self.assertIn("bibliothèque", str(context.exception).lower())
 
     @patch(
         "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",

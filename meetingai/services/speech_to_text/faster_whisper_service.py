@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -162,6 +163,7 @@ class FasterWhisperService(SpeechToTextService):
         self._device = device
         self._compute_type = compute_type
         self._model: Any | None = None
+        self._model_lock = threading.Lock()
 
     def _resolve_model_path(self) -> Path:
         """Retourne le chemin local attendu pour le modèle configuré."""
@@ -200,6 +202,9 @@ class FasterWhisperService(SpeechToTextService):
     def transcribe(self, media: MediaFile, task: Task) -> TranscriptionResult:
         """Transcrit le média avec faster-whisper.
 
+        Le modèle est chargé automatiquement lors du premier appel s'il ne
+        l'est pas déjà, puis réutilisé pour les transcriptions suivantes.
+
         Args:
             media: Média à transcrire.
             task: Tâche associée. Son état sera mis à jour avec la progression
@@ -210,14 +215,12 @@ class FasterWhisperService(SpeechToTextService):
             Résultat complet de la transcription.
 
         Raises:
-            RuntimeError: Si le modèle n'est pas chargé ou si la transcription
-                échoue.
+            RuntimeError: Si le modèle ne peut pas être chargé ou si la
+                transcription échoue.
         """
-        if self._model is None:
-            raise RuntimeError(
-                "Le modèle faster-whisper n'est pas chargé. "
-                "Appelez load_model() après avoir vérifié sa disponibilité."
-            )
+        with self._model_lock:
+            if self._model is None:
+                self.load_model()
 
         start_time = time.perf_counter()
         try:
