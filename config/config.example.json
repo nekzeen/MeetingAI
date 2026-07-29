@@ -1,0 +1,24 @@
+{
+    "application": {
+        "theme": "light",
+        "language": "fr"
+    },
+    "transcription": {
+        "model": "small",
+        "device": "cpu"
+    },
+    "speech_to_text": {
+        "provider": "faster-whisper",
+        "model_name": "small",
+        "models_directory": "models",
+        "device": "auto",
+        "compute_type": "int8",
+        "language": null
+    },
+    "export": {
+        "output_directory": "output"
+    },
+    "logging": {
+        "level": "INFO"
+    }
+}

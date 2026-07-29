@@ -52,3 +52,7 @@ output/*
 
 # Logs
 *.log
+
+# Configuration locale
+config/config.json
+!config/config.example.json

@@ -40,3 +40,19 @@ Si le chargement échoue (bibliothèque absente, répertoire du modèle introuva
 ### Contrôle explicite
 
 Les méthodes publiques `load_model()` et `download_model()` restent disponibles pour un chargement anticipé, un rechargement manuel ou un téléchargement explicite.
+
+---
+
+## Versionnement de la configuration
+
+### Principe
+
+Le fichier de configuration locale `config/config.json` n'est pas versionné. Il est généré automatiquement par `ConfigManager` à partir des valeurs par défaut s'il est absent.
+
+Le fichier `config/config.example.json` sert de modèle versionné : il présente la structure complète et les valeurs par défaut pour les développeurs et les déploiements.
+
+### Règles
+
+- `config/config.json` est ignoré par Git (``.gitignore``) ;
+- `config/config.example.json` est versionné et mis à jour lorsque la structure de configuration évolue ;
+- `ConfigManager` crée automatiquement `config/config.json` avec les valeurs par défaut si le fichier est absent au démarrage.
