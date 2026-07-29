@@ -85,9 +85,43 @@ class ProfileRegistry:
         """
         return self._profiles[key]
 
+    _CUSTOM_KEY: str = "custom"
+    _CUSTOM_LABEL: str = "Personnalisé"
+    _DEFAULT_CUSTOM_INSTRUCTION: str = (
+        "Rédige un résumé personnalisé selon les instructions suivantes."
+    )
+
     def available_profiles(self) -> list[SummaryProfile]:
         """Retourne la liste des profils triés par libellé."""
         return sorted(
             self._profiles.values(),
             key=lambda profile: profile.label,
         )
+
+    @classmethod
+    def build_custom_profile(
+        cls,
+        instruction: str = "",
+    ) -> SummaryProfile:
+        """Construit le profil personnalisé.
+
+        Args:
+            instruction: Instruction personnalisée. Si vide, une instruction
+                par défaut est utilisée.
+
+        Returns:
+            Profil personnalisé.
+        """
+        return SummaryProfile(
+            key=cls._CUSTOM_KEY,
+            label=cls._CUSTOM_LABEL,
+            instruction=instruction or cls._DEFAULT_CUSTOM_INSTRUCTION,
+        )
+
+    def available_profile_keys(self) -> set[str]:
+        """Retourne l'ensemble des clés de profil disponibles.
+
+        Returns:
+            Clés des profils intégrés et du profil personnalisé.
+        """
+        return set(self._profiles.keys()) | {self._CUSTOM_KEY}

@@ -78,6 +78,9 @@ class SettingsWindow(QDialog):
         self._summarization_profile_combo.setObjectName(
             "summarization_profile_combo"
         )
+        self._summarization_custom_profile_instruction_edit = QLineEdit(
+            self._summarization_group
+        )
         self._summarization_layout.addRow(
             "Provider :", self._summarization_provider_combo
         )
@@ -86,6 +89,10 @@ class SettingsWindow(QDialog):
         )
         self._summarization_layout.addRow(
             "Profil :", self._summarization_profile_combo
+        )
+        self._summarization_layout.addRow(
+            "Instructions personnalisées :",
+            self._summarization_custom_profile_instruction_edit,
         )
 
         self._export_group = QGroupBox("Export", self)
@@ -158,6 +165,11 @@ class SettingsWindow(QDialog):
                 self._initial_settings["summarization_profile"]
             )
         )
+        self._summarization_custom_profile_instruction_edit.setText(
+            self._initial_settings.get(
+                "summarization_custom_profile_instruction", ""
+            )
+        )
 
         self._device_combo.addItems(["auto", "cpu", "cuda"])
         self._device_combo.setCurrentText(self._initial_settings["device"])
@@ -199,4 +211,5 @@ class SettingsWindow(QDialog):
             "summarization_provider": self._summarization_provider_combo.currentText(),
             "summarization_model": self._summarization_model_combo.currentText(),
             "summarization_profile": self._summarization_profile_combo.currentData(),
+            "summarization_custom_profile_instruction": self._summarization_custom_profile_instruction_edit.text(),
         }

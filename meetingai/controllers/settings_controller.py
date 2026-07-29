@@ -59,6 +59,11 @@ class SettingsController:
             available_models = []
 
         profile_registry = ProfileRegistry()
+        custom_instruction = self._config.get(
+            "summarization.custom_profile_instruction"
+        )
+        custom_profile = ProfileRegistry.build_custom_profile(custom_instruction)
+        profiles = profile_registry.available_profiles() + [custom_profile]
 
         return {
             "theme": self._config.get("application.theme"),
@@ -80,8 +85,9 @@ class SettingsController:
             ),
             "summarization_profiles": [
                 {"key": profile.key, "label": profile.label}
-                for profile in profile_registry.available_profiles()
+                for profile in profiles
             ],
+            "summarization_custom_profile_instruction": custom_profile.instruction,
         }
 
     def save_settings(self, settings: dict[str, str]) -> None:
@@ -113,6 +119,10 @@ class SettingsController:
         self._config.set(
             "summarization.profile", settings["summarization_profile"]
         )
+        self._config.set(
+            "summarization.custom_profile_instruction",
+            settings["summarization_custom_profile_instruction"],
+        )
         self._config.save()
 
     def _validate(self, settings: dict[str, str]) -> None:
@@ -137,11 +147,10 @@ class SettingsController:
                 "Provider de résumé non supporté : "
                 f"{settings['summarization_provider']}"
             )
-        available_profile_keys = {
-            profile.key
-            for profile in ProfileRegistry().available_profiles()
-        }
-        if settings["summarization_profile"] not in available_profile_keys:
+        if (
+            settings["summarization_profile"]
+            not in ProfileRegistry().available_profile_keys()
+        ):
             raise ValueError(
                 "Profil de résumé non supporté : "
                 f"{settings['summarization_profile']}"

@@ -38,7 +38,7 @@ class FakeSummarizationService(SummarizationService):
             Résultat de résumé factice.
         """
         return SummaryResult(
-            text=f"[{profile.label}] {self._FIXED_SUMMARY}",
+            text=f"[{profile.label}] {profile.instruction} {self._FIXED_SUMMARY}",
             provider=self._NAME,
         )
 

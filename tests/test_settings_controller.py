@@ -71,6 +71,7 @@ class TestSettingsController(unittest.TestCase):
             "summarization_provider": "fake",
             "summarization_model": "custom-model",
             "summarization_profile": "key_points",
+            "summarization_custom_profile_instruction": "Ma commande.",
         }
 
         controller.save_settings(new_settings)
@@ -90,6 +91,10 @@ class TestSettingsController(unittest.TestCase):
         )
         self.assertEqual(
             config_manager.get("summarization.profile"), "key_points"
+        )
+        self.assertEqual(
+            config_manager.get("summarization.custom_profile_instruction"),
+            "Ma commande.",
         )
 
     def test_save_settings_rejects_invalid_theme(self) -> None:

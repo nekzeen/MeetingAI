@@ -42,7 +42,9 @@ class TestSettingsWindow(unittest.TestCase):
             "summarization_profiles": [
                 {"key": "concise", "label": "Résumé concis"},
                 {"key": "key_points", "label": "Points clés"},
+                {"key": "custom", "label": "Personnalisé"},
             ],
+            "summarization_custom_profile_instruction": "Instruction initiale.",
         }
         self.window = SettingsWindow(self.initial_settings)
 
@@ -172,12 +174,18 @@ class TestSettingsWindow(unittest.TestCase):
         )
 
         edits = self.window.findChildren(QLineEdit)
-        model_edit = edits[0]
+        model_edit = next(
+            edit for edit in edits if edit.text() == "small"
+        )
         output_edit = next(
             edit for edit in edits if edit.text() == "output"
         )
+        custom_instruction_edit = next(
+            edit for edit in edits if edit.text() == "Instruction initiale."
+        )
         model_edit.setText("medium")
         output_edit.setText("custom")
+        custom_instruction_edit.setText("Nouvelle instruction.")
 
         settings = self.window.get_settings()
 
@@ -191,6 +199,10 @@ class TestSettingsWindow(unittest.TestCase):
         self.assertEqual(settings["summarization_provider"], "fake")
         self.assertEqual(settings["summarization_model"], "mistral")
         self.assertEqual(settings["summarization_profile"], "key_points")
+        self.assertEqual(
+            settings["summarization_custom_profile_instruction"],
+            "Nouvelle instruction.",
+        )
 
     def test_get_settings_reflects_summarization_provider_change(self) -> None:
         """get_settings reflète le changement de provider de résumé."""

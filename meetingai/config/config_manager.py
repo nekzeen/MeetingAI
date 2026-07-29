@@ -55,6 +55,7 @@ class SummarizationConfig:
     ollama_model: str = "llama3.2"
     ollama_timeout: int = 30
     profile: str = "concise"
+    custom_profile_instruction: str = ""
 
 
 @dataclass

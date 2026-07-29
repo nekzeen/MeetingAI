@@ -227,10 +227,15 @@ Un profil de résumé est représenté par ``SummaryProfile`` (clé, libellé af
 
 ### Transmission au provider
 
-L'interface ``SummarizationService.summarize(text, profile)`` reçoit désormais le profil sélectionné. Chaque provider utilise ``profile.instruction`` pour guider la génération. Le provider ``fake`` intègre le libellé du profil dans son résumé simulé afin de faciliter les tests.
+L'interface ``SummarizationService.summarize(text, profile)`` reçoit désormais le profil sélectionné. Chaque provider utilise ``profile.instruction`` pour guider la génération. Le provider ``fake`` intègre l'instruction du profil dans son résumé simulé afin de faciliter les tests.
+
+### Profil personnalisé
+
+En plus des profils intégrés, un profil ``custom`` est disponible. L'utilisateur peut saisir ses propres instructions dans `SettingsWindow`. Celles-ci sont persistées sous ``summarization.custom_profile_instruction``. Lorsque le profil ``custom`` est sélectionné, `SummarizationController` construit le ``SummaryProfile`` avec cette instruction avant de l'envoyer au provider.
 
 ### Sélection et persistance
 
 - `SummarizationController` lit ``summarization.profile`` (défaut : ``concise``) et transmet le profil au provider.
-- `SettingsController` charge la liste des profils via ``ProfileRegistry`` et la propose dans un menu déroulant de `SettingsWindow`.
+- `SettingsController` charge les profils intégrés via ``ProfileRegistry``, ajoute le profil personnalisé et propose l'ensemble dans `SettingsWindow`.
 - La clé sélectionnée est persistée sous ``summarization.profile``.
+- L'instruction personnalisée est persistée sous ``summarization.custom_profile_instruction``.

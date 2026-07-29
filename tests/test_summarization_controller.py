@@ -11,6 +11,7 @@ from meetingai.controllers.summarization_controller import (
 from meetingai.services.speech_to_text.transcription_result import (
     TranscriptionResult,
 )
+from meetingai.services.summarization.summary_profile import ProfileRegistry
 from meetingai.services.summarization.summary_result import SummaryResult
 from meetingai.services.summarization.summarization_factory import (
     SummarizationFactory,
@@ -82,6 +83,22 @@ class TestSummarizationController(unittest.TestCase):
 
         self.assertEqual(len(emitted), 1)
         self.assertIn("Points clés", emitted[0].text)
+
+    def test_summarize_uses_custom_profile_instruction(self) -> None:
+        """Le contrôleur transmet l'instruction du profil personnalisé."""
+        self.config_manager.set("summarization.profile", "custom")
+        self.config_manager.set(
+            "summarization.custom_profile_instruction",
+            "Ma consigne personnalisée.",
+        )
+        self.controller.on_transcription_ready(self._build_transcription())
+        emitted: list[object] = []
+        self.controller.summary_ready.connect(emitted.append)
+
+        self.controller.summarize_current_transcription()
+
+        self.assertEqual(len(emitted), 1)
+        self.assertIn("Ma consigne personnalisée.", emitted[0].text)
 
     def test_summarize_uses_configured_provider(self) -> None:
         """Le contrôleur utilise le provider configuré."""

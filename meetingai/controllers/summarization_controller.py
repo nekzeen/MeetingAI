@@ -51,6 +51,22 @@ class SummarizationController(QObject):
         """
         self._last_transcription = result
 
+    def _resolve_profile(self, profile_key: str) -> object:
+        """Retourne le profil de résumé correspondant à la clé.
+
+        Args:
+            profile_key: Clé du profil souhaité.
+
+        Returns:
+            Instance de ``SummaryProfile``.
+        """
+        if profile_key == ProfileRegistry.build_custom_profile().key:
+            custom_instruction = self._config.get(
+                "summarization.custom_profile_instruction"
+            )
+            return ProfileRegistry.build_custom_profile(custom_instruction)
+        return ProfileRegistry().get(profile_key)
+
     def summarize_current_transcription(self) -> None:
         """Résume la dernière transcription disponible.
 
@@ -65,7 +81,7 @@ class SummarizationController(QObject):
         profile_key = self._config.get("summarization.profile") or "concise"
         try:
             service = self._factory.create(provider_name, config=self._config)
-            profile = ProfileRegistry().get(profile_key)
+            profile = self._resolve_profile(profile_key)
             summary = service.summarize(self._last_transcription.text, profile)
             self.summary_ready.emit(summary)
         except Exception as exc:
