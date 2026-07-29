@@ -73,16 +73,6 @@ class MediaController(QObject):
                 str(exc),
             )
 
-    def transcribe_current_media(self) -> None:
-        """Méthode obsolète : la transcription est gérée par ``TranscriptionController``.
-
-        Conserve temporairement une interface stable pour les appelants
-        existants afin d'éviter une rupture immédiate.
-        """
-        raise NotImplementedError(
-            "Utilisez TranscriptionController.transcribe() pour lancer une transcription."
-        )
-
     def _build_file_filter(self) -> str:
         """Construit le filtre de formats supportés pour QFileDialog."""
         audio_formats = " ".join(

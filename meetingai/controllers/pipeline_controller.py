@@ -21,7 +21,6 @@ from meetingai.models.media_file import MediaFile
 from meetingai.services.speech_to_text.transcription_result import (
     TranscriptionResult,
 )
-from meetingai.services.summarization.summary_result import SummaryResult
 
 
 class PipelineController(QObject):
@@ -65,7 +64,6 @@ class PipelineController(QObject):
         self._active: bool = False
         self._export_paths: list[str] = []
         self._transcription_result: TranscriptionResult | None = None
-        self._summary_result: SummaryResult | None = None
         self._wire_signals()
 
     def _wire_signals(self) -> None:
@@ -139,11 +137,10 @@ class PipelineController(QObject):
             return
         self._finish_failed(f"Transcription échouée : {message}")
 
-    def _on_summary_ready(self, summary: SummaryResult) -> None:
+    def _on_summary_ready(self, summary: object) -> None:
         """Passe à l'étape d'export après résumé réussi."""
         if not self._active:
             return
-        self._summary_result = summary
         self._enter_step("export")
         if self._transcription_result is None:
             self._finish_failed("Aucune transcription disponible pour l'export.")

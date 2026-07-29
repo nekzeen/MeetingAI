@@ -4,6 +4,91 @@ Ce document capture les décisions d'architecture importantes de MeetingAI.
 
 ---
 
+## Architecture globale V1
+
+MeetingAI est organisé en couches unidirectionnelles. La couche graphique ne
+contient aucune logique métier ; elle délègue aux contrôleurs, qui coordonnent
+les briques du noyau (`core`) et les services (`services`).
+
+```text
+┌─────────────────────────────────────────────┐
+│                     GUI                       │
+│  MainWindow · Workspace · SettingsWindow      │
+├─────────────────────────────────────────────┤
+│                 Controllers                 │
+│  Media · Transcription · Summarization        │
+│  Export · Settings · Pipeline               │
+├─────────────────────────────────────────────┤
+│                    Core                     │
+│  TaskManager · WorkerManager · Workers       │
+├─────────────────────────────────────────────┤
+│                   Services                  │
+│  Speech-To-Text · Summarization · Export    │
+│  Media · Models                             │
+└─────────────────────────────────────────────┘
+```
+
+### Règles de dépendance
+
+- `gui` dépend de `controllers` et de `core` uniquement via les signaux.
+- `controllers` dépend de `core` et de `services`.
+- `core` ne dépend pas de `gui` ni de `controllers`.
+- `services` ne dépendent ni de `gui`, ni de `controllers`, ni du flux applicatif.
+- Aucune dépendance circulaire n'est autorisée.
+
+### Flux de données
+
+1. L'utilisateur déclenche une action depuis `MainWindow`.
+2. `ActionManager` transmet le signal au contrôleur concerné.
+3. Le contrôleur utilise `core` (tâches, workers) pour exécuter un traitement
+   long sans bloquer l'interface.
+4. Le worker délègue le traitement réel à un service.
+5. Les résultats remontent par signaux jusqu'aux widgets.
+
+---
+
+## Workflows utilisateur principaux
+
+### Ouvrir un média
+
+1. `MainWindow` déclenche `MediaController.open_media()`.
+2. `MediaController` affiche `QFileDialog` et valide le fichier via
+   `MediaService`.
+3. Le signal `media_loaded` met à jour `MediaInformationWidget`.
+
+### Transcrire
+
+1. `MainWindow` déclenche `TranscriptionController.transcribe(media)`.
+2. Un `TranscriptionWorker` exécute `SpeechToTextService.transcribe()` dans un
+   thread dédié.
+3. Les signaux `transcription_started`, `transcription_progress`,
+   `transcription_ready` mettent à jour l'interface.
+
+### Résumer
+
+1. `MainWindow` déclenche
+   `SummarizationController.summarize_current_transcription()`.
+2. Le contrôleur résout le `SummaryProfile` configuré et appelle
+   `SummarizationService.summarize(text, profile)`.
+3. Le signal `summary_ready` met à jour `SummaryWidget`.
+
+### Exporter
+
+1. `MainWindow` déclenche `ExportController.export_txt()` ou
+   `export_markdown()`.
+2. Le contrôleur appelle `ExportService.export()` avec le dernier
+   `TranscriptionResult` connu.
+3. Le signal `export_succeeded` retourne le chemin du fichier généré.
+
+### Pipeline automatique
+
+1. `MainWindow` déclenche `PipelineController.start(media)`.
+2. Le pipeline enchaîne transcription, résumé puis export TXT.
+3. Toute erreur interrompt le déroulement et est propagée via
+   `pipeline_failed`.
+
+---
+
 ## Cycle de vie du modèle Faster-Whisper
 
 ### Initialisation
@@ -248,6 +333,23 @@ Le pipeline automatique enchaîne en une seule action la transcription, la gén�
 ### Extensibilité
 
 Chaque étape reste un contrôleur dédié. Ajouter une nouvelle étape (traduction, analyse...) consiste à insérer un nouveau contrôleur entre `SummarizationController` et `ExportController` sans modifier les étapes existantes.
+
+## Dette technique identifiée
+
+Les points suivants ont été repérés lors de l'audit V1. Ils n'ont pas été
+corrigés afin de ne pas introduire de changement fonctionnel, mais pourront faire
+l'objet de refactorisations futures :
+
+- `ConfigManager` conserve une section `transcription` historique en plus de
+  `speech_to_text`. La fusion ou le retrait de cette section nécessiterait une
+  migration des configurations existantes.
+- `SummarizationFactory.create()` contient une branche spécifique au provider
+  `ollama`. Une amélioration consisterait à faire accepter une configuration à
+  chaque provider de manière uniforme, sans logique conditionnelle dans la
+  factory.
+- Le type `Worker` défini dans `core/worker.py` est une abstraction peu exploitée
+  : `TranscriptionWorker` n'en hérite pas car il doit être un `QObject` porteur
+  de signaux Qt.
 
 ## Profils de résumé
 

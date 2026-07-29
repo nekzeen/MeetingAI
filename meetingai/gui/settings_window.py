@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import Any
 
 from PySide6.QtWidgets import (
     QComboBox,
@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
-    QLabel,
     QLineEdit,
     QPushButton,
     QVBoxLayout,
@@ -34,7 +33,7 @@ class SettingsWindow(QDialog):
 
     def __init__(
         self,
-        initial_settings: dict[str, str],
+        initial_settings: dict[str, Any],
         parent: QWidget | None = None,
     ) -> None:
         """Initialise la fenêtre de paramètres."""
@@ -194,7 +193,7 @@ class SettingsWindow(QDialog):
         if directory:
             self._output_directory_edit.setText(directory)
 
-    def get_settings(self) -> dict[str, str]:
+    def get_settings(self) -> dict[str, Any]:
         """Retourne les valeurs actuelles des paramètres.
 
         Returns:

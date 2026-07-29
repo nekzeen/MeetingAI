@@ -51,7 +51,7 @@ class SummarizationController(QObject):
         """
         self._last_transcription = result
 
-    def _resolve_profile(self, profile_key: str) -> object:
+    def _resolve_profile(self, profile_key: str) -> SummaryProfile:
         """Retourne le profil de résumé correspondant à la clé.
 
         Args:

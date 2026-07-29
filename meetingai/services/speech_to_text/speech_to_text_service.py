@@ -5,7 +5,6 @@ from __future__ import annotations
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any
 
 from meetingai.core.task import Task
 from meetingai.models.media_file import MediaFile

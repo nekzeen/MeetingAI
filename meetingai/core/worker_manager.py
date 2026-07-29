@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import ClassVar
-
-from typing import Any
+from typing import Any, ClassVar
 
 from meetingai.core.worker import Worker
 
