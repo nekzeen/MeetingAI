@@ -112,6 +112,54 @@ class TestOllamaSummarizationService(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 service.summarize("Texte.")
 
+    def test_available_models_returns_sorted_names(self) -> None:
+        """available_models extrait et trie les noms des modèles."""
+        service = OllamaSummarizationService()
+        payload = {
+            "models": [
+                {"name": "llama3.2"},
+                {"name": "mistral"},
+            ]
+        }
+        response = _MockHTTPResponse(json.dumps(payload).encode("utf-8"))
+
+        with patch("meetingai.services.summarization.ollama_summarization_service.urlopen", return_value=response):
+            models = service.available_models()
+
+        self.assertEqual(models, ["llama3.2", "mistral"])
+
+    def test_available_models_returns_empty_list(self) -> None:
+        """available_models retourne une liste vide si aucun modèle n'est installé."""
+        service = OllamaSummarizationService()
+        response = _MockHTTPResponse(
+            json.dumps({"models": []}).encode("utf-8")
+        )
+
+        with patch("meetingai.services.summarization.ollama_summarization_service.urlopen", return_value=response):
+            models = service.available_models()
+
+        self.assertEqual(models, [])
+
+    def test_available_models_raises_when_server_is_down(self) -> None:
+        """available_models lève une erreur si le serveur est indisponible."""
+        service = OllamaSummarizationService()
+
+        with patch(
+            "meetingai.services.summarization.ollama_summarization_service.urlopen",
+            side_effect=Exception("connection refused"),
+        ):
+            with self.assertRaises(RuntimeError):
+                service.available_models()
+
+    def test_available_models_raises_on_invalid_json(self) -> None:
+        """available_models lève une erreur si la réponse est invalide."""
+        service = OllamaSummarizationService()
+        response = _MockHTTPResponse(b"not json")
+
+        with patch("meetingai.services.summarization.ollama_summarization_service.urlopen", return_value=response):
+            with self.assertRaises(RuntimeError):
+                service.available_models()
+
 
 if __name__ == "__main__":
     unittest.main()

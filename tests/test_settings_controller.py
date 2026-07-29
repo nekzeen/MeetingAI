@@ -52,6 +52,8 @@ class TestSettingsController(unittest.TestCase):
         self.assertIn("compute_type", settings)
         self.assertIn("output_directory", settings)
         self.assertIn("summarization_provider", settings)
+        self.assertIn("summarization_model", settings)
+        self.assertIn("summarization_available_models", settings)
 
     def test_save_settings_persists_values(self) -> None:
         """save_settings persiste les nouvelles valeurs dans ConfigManager."""
@@ -65,6 +67,7 @@ class TestSettingsController(unittest.TestCase):
             "compute_type": "float16",
             "output_directory": "custom_output",
             "summarization_provider": "fake",
+            "summarization_model": "custom-model",
         }
 
         controller.save_settings(new_settings)
@@ -78,6 +81,9 @@ class TestSettingsController(unittest.TestCase):
         self.assertEqual(config_manager.get("export.output_directory"), "custom_output")
         self.assertEqual(
             config_manager.get("summarization.provider"), "fake"
+        )
+        self.assertEqual(
+            config_manager.get("summarization.ollama_model"), "custom-model"
         )
 
     def test_save_settings_rejects_invalid_theme(self) -> None:

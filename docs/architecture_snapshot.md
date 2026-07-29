@@ -192,3 +192,19 @@ L'ajout d'un futur provider n'implique qu'une inscription dans la factory corres
 ### Intégration
 
 Le provider est automatiquement enregistré dans ``SummarizationFactory``. Le contrôleur l'instancie avec la configuration courante lorsque ``summarization.provider`` vaut ``ollama``. Aucune modification structurelle du contrôleur ou de l'interface n'a été nécessaire.
+
+---
+
+## Gestion des modèles Ollama
+
+### Détection automatique
+
+`OllamaSummarizationService` expose une méthode ``available_models()`` qui interroge ``/api/tags`` pour récupérer la liste des modèles installés localement. La méthode retourne une liste triée des noms et lève ``RuntimeError`` en cas d'indisponibilité du serveur ou de réponse invalide.
+
+### Sélection dans les paramètres
+
+`SettingsController` appelle ``available_models()`` lors du chargement de la fenêtre de paramètres et transmet la liste à `SettingsWindow`. La fenêtre affiche une liste déroulante éditable permettant de choisir un modèle parmi ceux détectés ou d'en saisir un manuellement si le serveur n'est pas joignable. Le modèle sélectionné est persisté sous ``summarization.ollama_model``.
+
+### Extensibilité
+
+La méthode ``available_models()`` fait partie de l'interface ``SummarizationService``. Les futurs providers qui proposent plusieurs modèles pourront l'implémenter de la même manière sans modifier le contrôleur ou la vue.

@@ -83,6 +83,9 @@ class TestSummarizationController(unittest.TestCase):
             def summarize(self, text: str) -> SummaryResult:
                 return SummaryResult(text="résumé custom", provider="custom")
 
+            def available_models(self) -> list[str]:
+                return []
+
         self.factory.register_provider("custom", _CustomSummarizationService)
         self.config_manager.set("summarization.provider", "custom")
         self.controller.on_transcription_ready(self._build_transcription())

@@ -96,3 +96,44 @@ class OllamaSummarizationService(SummarizationService):
             raise RuntimeError("Réponse Ollama inattendue : champ 'response' manquant.")
 
         return SummaryResult(text=summary.strip(), provider=self.name())
+
+    def available_models(self) -> list[str]:
+        """Retourne la liste des modèles installés sur le serveur Ollama.
+
+        Returns:
+            Noms des modèles disponibles.
+
+        Raises:
+            RuntimeError: Si la requête échoue ou si la réponse est invalide.
+        """
+        request = Request(
+            f"{self._base_url}/api/tags",
+            method="GET",
+        )
+
+        try:
+            with urlopen(request, timeout=self._timeout) as response:
+                data = json.loads(response.read().decode("utf-8"))
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                "Réponse invalide reçue depuis Ollama."
+            ) from exc
+        except Exception as exc:
+            raise RuntimeError(
+                f"Échec de la récupération des modèles Ollama : {exc}"
+            ) from exc
+
+        models = data.get("models", [])
+        if not isinstance(models, list):
+            raise RuntimeError("Réponse Ollama inattendue pour /api/tags.")
+
+        names: list[str] = []
+        for model in models:
+            if isinstance(model, dict):
+                name = model.get("name")
+                if name:
+                    names.append(str(name))
+            elif isinstance(model, str):
+                names.append(model)
+
+        return sorted(names)

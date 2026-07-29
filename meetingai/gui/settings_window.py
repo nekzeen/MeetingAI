@@ -69,8 +69,16 @@ class SettingsWindow(QDialog):
         self._summarization_group = QGroupBox("Résumé IA", self)
         self._summarization_layout = QFormLayout(self._summarization_group)
         self._summarization_provider_combo = QComboBox(self._summarization_group)
+        self._summarization_model_combo = QComboBox(self._summarization_group)
+        self._summarization_model_combo.setObjectName(
+            "summarization_model_combo"
+        )
+        self._summarization_model_combo.setEditable(True)
         self._summarization_layout.addRow(
             "Provider :", self._summarization_provider_combo
+        )
+        self._summarization_layout.addRow(
+            "Modèle :", self._summarization_model_combo
         )
 
         self._export_group = QGroupBox("Export", self)
@@ -121,6 +129,18 @@ class SettingsWindow(QDialog):
         self._summarization_provider_combo.setCurrentText(
             self._initial_settings["summarization_provider"]
         )
+        available_models = self._initial_settings.get(
+            "summarization_available_models", []
+        )
+        if available_models:
+            self._summarization_model_combo.addItems(available_models)
+            self._summarization_model_combo.setCurrentText(
+                self._initial_settings["summarization_model"]
+            )
+        else:
+            self._summarization_model_combo.setEditText(
+                self._initial_settings["summarization_model"]
+            )
 
         self._device_combo.addItems(["auto", "cpu", "cuda"])
         self._device_combo.setCurrentText(self._initial_settings["device"])
@@ -160,4 +180,5 @@ class SettingsWindow(QDialog):
             "compute_type": self._compute_type_combo.currentText(),
             "output_directory": self._output_directory_edit.text(),
             "summarization_provider": self._summarization_provider_combo.currentText(),
+            "summarization_model": self._summarization_model_combo.currentText(),
         }

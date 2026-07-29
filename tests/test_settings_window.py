@@ -35,7 +35,9 @@ class TestSettingsWindow(unittest.TestCase):
             "compute_type": "int8",
             "output_directory": "output",
             "summarization_provider": "fake",
-            "summarization_providers": ["fake"],
+            "summarization_providers": ["fake", "ollama"],
+            "summarization_model": "llama3.2",
+            "summarization_available_models": [],
         }
         self.window = SettingsWindow(self.initial_settings)
 
@@ -101,6 +103,7 @@ class TestSettingsWindow(unittest.TestCase):
         self.assertEqual(settings["compute_type"], "int8")
         self.assertEqual(settings["output_directory"], "output")
         self.assertEqual(settings["summarization_provider"], "fake")
+        self.assertEqual(settings["summarization_model"], "llama3.2")
 
     def _find_combo_by_items(self, expected_items: set[str]) -> QComboBox:
         """Retourne le QComboBox dont tous les items attendus sont présents."""
@@ -109,6 +112,28 @@ class TestSettingsWindow(unittest.TestCase):
             if expected_items <= items:
                 return combo
         raise AssertionError("QComboBox non trouvé")
+
+    def _find_summarization_model_combo(self) -> QComboBox:
+        """Retourne le QComboBox de sélection du modèle de résumé IA."""
+        combo = self.window.findChild(QComboBox, "summarization_model_combo")
+        assert combo is not None
+        return combo
+
+    def test_summarization_model_combo_is_populated(self) -> None:
+        """Le modèle de résumé se remplit avec les modèles disponibles."""
+        self.window.close()
+        self.window.deleteLater()
+        settings = self.initial_settings.copy()
+        settings["summarization_available_models"] = [
+            "llama3.2",
+            "mistral",
+        ]
+        self.window = SettingsWindow(settings)
+
+        combo = self._find_summarization_model_combo()
+
+        self.assertIn("llama3.2", self._combo_items(combo))
+        self.assertIn("mistral", self._combo_items(combo))
 
     def test_get_settings_reflects_changes(self) -> None:
         """get_settings retourne les valeurs modifiées."""
@@ -126,9 +151,14 @@ class TestSettingsWindow(unittest.TestCase):
         device_combo.setCurrentText("cpu")
         compute_combo.setCurrentText("float16")
 
+        model_combo = self._find_summarization_model_combo()
+        model_combo.setCurrentText("mistral")
+
         edits = self.window.findChildren(QLineEdit)
         model_edit = edits[0]
-        output_edit = edits[1]
+        output_edit = next(
+            edit for edit in edits if edit.text() == "output"
+        )
         model_edit.setText("medium")
         output_edit.setText("custom")
 
@@ -142,6 +172,7 @@ class TestSettingsWindow(unittest.TestCase):
         self.assertEqual(settings["compute_type"], "float16")
         self.assertEqual(settings["output_directory"], "custom")
         self.assertEqual(settings["summarization_provider"], "fake")
+        self.assertEqual(settings["summarization_model"], "mistral")
 
     def test_get_settings_reflects_summarization_provider_change(self) -> None:
         """get_settings reflète le changement de provider de résumé."""

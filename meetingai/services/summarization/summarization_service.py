@@ -40,3 +40,11 @@ class SummarizationService(ABC):
         Returns:
             Résultat du résumé.
         """
+
+    @abstractmethod
+    def available_models(self) -> list[str]:
+        """Retourne la liste des modèles utilisables par ce provider.
+
+        Returns:
+            Liste des noms de modèles disponibles.
+        """

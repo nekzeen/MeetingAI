@@ -32,3 +32,7 @@ class FakeSummarizationService(SummarizationService):
             Résultat de résumé factice.
         """
         return SummaryResult(text=self._FIXED_SUMMARY, provider=self._NAME)
+
+    def available_models(self) -> list[str]:
+        """Le provider factice n'a pas de modèles."""
+        return []

@@ -47,6 +47,16 @@ class SettingsController:
         Returns:
             Dictionnaire des paramètres affichés dans la fenêtre.
         """
+        provider = self._config.get("summarization.provider")
+        summarization_service = self._summarization_factory.create(
+            provider,
+            config=self._config,
+        )
+        try:
+            available_models = summarization_service.available_models()
+        except RuntimeError:
+            available_models = []
+
         return {
             "theme": self._config.get("application.theme"),
             "language": self._config.get("application.language"),
@@ -56,10 +66,12 @@ class SettingsController:
             "device": self._config.get("speech_to_text.device"),
             "compute_type": self._config.get("speech_to_text.compute_type"),
             "output_directory": self._config.get("export.output_directory"),
-            "summarization_provider": self._config.get(
-                "summarization.provider"
-            ),
+            "summarization_provider": provider,
             "summarization_providers": self.available_summarization_providers(),
+            "summarization_model": self._config.get(
+                "summarization.ollama_model"
+            ),
+            "summarization_available_models": available_models,
         }
 
     def save_settings(self, settings: dict[str, str]) -> None:
@@ -84,6 +96,9 @@ class SettingsController:
         )
         self._config.set(
             "summarization.provider", settings["summarization_provider"]
+        )
+        self._config.set(
+            "summarization.ollama_model", settings["summarization_model"]
         )
         self._config.save()
 

@@ -69,6 +69,9 @@ class TestSummarizationFactory(unittest.TestCase):
             def summarize(self, text: str) -> SummaryResult:
                 return SummaryResult(text="résumé custom", provider="custom")
 
+            def available_models(self) -> list[str]:
+                return []
+
         self.factory.register_provider("custom", CustomSummarizationService)
 
         self.assertIn("custom", self.factory.available_providers())
