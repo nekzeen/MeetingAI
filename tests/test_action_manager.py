@@ -68,6 +68,14 @@ class TestActionManager(unittest.TestCase):
         self.assertIsInstance(manager.transcribe_action, QAction)
         self.assertEqual(manager.transcribe_action.text(), "Transcrire")
 
+    def test_summarize_action_exists(self) -> None:
+        """L'action 'Résumer la transcription' est créée."""
+        manager = ActionManager()
+        self.assertIsInstance(manager.summarize_action, QAction)
+        self.assertEqual(
+            manager.summarize_action.text(), "Résumer la transcription"
+        )
+
     def test_export_txt_action_exists(self) -> None:
         """L'action 'Exporter en TXT' est créée."""
         manager = ActionManager()
@@ -94,6 +102,7 @@ class TestActionManager(unittest.TestCase):
             "export_markdown",
             "quit",
             "transcribe",
+            "summarize",
             "preferences",
             "about",
         }

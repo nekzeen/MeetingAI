@@ -47,6 +47,13 @@ class LoggingConfig:
 
 
 @dataclass
+class SummarizationConfig:
+    """Paramètres de résumé IA."""
+
+    provider: str = "fake"
+
+
+@dataclass
 class ConfigManager:
     """Gère le chargement et la persistance de la configuration.
 
@@ -80,6 +87,7 @@ class ConfigManager:
             "speech_to_text": asdict(SpeechToTextConfiguration()),
             "export": asdict(ExportConfig()),
             "logging": asdict(LoggingConfig()),
+            "summarization": asdict(SummarizationConfig()),
         }
 
     def load(self) -> None:

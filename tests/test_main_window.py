@@ -88,11 +88,13 @@ class TestMainWindow(unittest.TestCase):
         self.assertIn("Exporter en Markdown", texts)
         self.assertIn("Quitter", texts)
 
-    def test_tools_menu_contains_preferences(self) -> None:
-        """Le menu Outils contient l'action Préférences."""
+    def test_tools_menu_contains_expected_actions(self) -> None:
+        """Le menu Outils contient les actions attendues."""
         tools_menu = self._menu_by_title("Outils")
         self.assertIsNotNone(tools_menu)
         texts = [action.text() for action in tools_menu.actions()]
+        self.assertIn("Transcrire", texts)
+        self.assertIn("Résumer la transcription", texts)
         self.assertIn("Préférences", texts)
 
     def test_help_menu_contains_about(self) -> None:

@@ -20,5 +20,8 @@
     },
     "logging": {
         "level": "INFO"
+    },
+    "summarization": {
+        "provider": "fake"
     }
 }

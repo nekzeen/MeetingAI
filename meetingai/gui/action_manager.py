@@ -50,6 +50,7 @@ class ActionManager:
         self.export_markdown_action = QAction("Exporter en Markdown", self._parent)
         self.quit_action = QAction("Quitter", self._parent)
         self.transcribe_action = QAction("Transcrire", self._parent)
+        self.summarize_action = QAction("Résumer la transcription", self._parent)
         self.preferences_action = QAction("Préférences", self._parent)
         self.about_action = QAction("À propos", self._parent)
 
@@ -68,6 +69,7 @@ class ActionManager:
             "export_markdown": self.export_markdown_action,
             "quit": self.quit_action,
             "transcribe": self.transcribe_action,
+            "summarize": self.summarize_action,
             "preferences": self.preferences_action,
             "about": self.about_action,
         }

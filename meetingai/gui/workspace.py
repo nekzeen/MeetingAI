@@ -9,6 +9,9 @@ from PySide6.QtWidgets import (
 )
 
 from meetingai.controllers.media_controller import MediaController
+from meetingai.controllers.summarization_controller import (
+    SummarizationController,
+)
 from meetingai.controllers.transcription_controller import TranscriptionController
 from meetingai.core.service_registry import ServiceRegistry
 from meetingai.gui.widgets.history_widget import HistoryWidget
@@ -40,6 +43,7 @@ class Workspace(QWidget):
         parent: QWidget | None = None,
         media_controller: MediaController | None = None,
         transcription_controller: TranscriptionController | None = None,
+        summarization_controller: SummarizationController | None = None,
     ) -> None:
         """Initialise le workspace et ses panneaux.
 
@@ -49,12 +53,19 @@ class Workspace(QWidget):
                 ``media_loaded`` mettra à jour le widget d'information.
             transcription_controller: Contrôleur de transcription dont le
                 signal ``transcription_ready`` mettra à jour le widget de
-                transcription. S'ils ne sont pas fournis, le workspace tente de
-                les récupérer depuis le ``ServiceRegistry``.
+                transcription.
+            summarization_controller: Contrôleur de résumé IA dont le signal
+                ``summary_ready`` mettra à jour le widget de résumé. S'ils ne
+                sont pas fournis, le workspace tente de les récupérer depuis
+                le ``ServiceRegistry``.
         """
         super().__init__(parent)
         self._setup_ui()
-        self._connect_controllers(media_controller, transcription_controller)
+        self._connect_controllers(
+            media_controller,
+            transcription_controller,
+            summarization_controller,
+        )
 
     def _setup_ui(self) -> None:
         """Crée le splitter horizontal et organise les panneaux."""
@@ -104,6 +115,7 @@ class Workspace(QWidget):
         self,
         media_controller: MediaController | None,
         transcription_controller: TranscriptionController | None,
+        summarization_controller: SummarizationController | None,
     ) -> None:
         """Connecte les signaux des contrôleurs aux widgets concernés."""
         if media_controller is None:
@@ -122,6 +134,17 @@ class Workspace(QWidget):
                 return
         transcription_controller.transcription_ready.connect(
             self._transcript_widget.set_transcription
+        )
+
+        if summarization_controller is None:
+            try:
+                summarization_controller = ServiceRegistry().get(
+                    "summarization_controller"
+                )
+            except KeyError:
+                return
+        summarization_controller.summary_ready.connect(
+            self._summary_widget.set_summary
         )
 
     def layout(self) -> QHBoxLayout:

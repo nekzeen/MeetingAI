@@ -134,3 +134,19 @@ Le résumé IA suit la même architecture abstraite que Speech-To-Text et Export
 ### Extensibilité
 
 Chaque futur provider n'a qu'à hériter de ``SummarizationService`` et être enregistré dans la factory pour être disponible dans l'application.
+
+---
+
+## Intégration du résumé IA
+
+### Workflow
+
+1. **`SummarizationController`** est créé par ``ApplicationContext`` avec ``SummarizationFactory`` et ``ConfigManager``.
+2. Le contrôleur écoute ``transcription_ready`` du ``TranscriptionController`` pour conserver la dernière transcription.
+3. L'action ``Résumer la transcription`` dans le menu ``Outils`` déclenche ``SummarizationController.summarize_current_transcription()``.
+4. Le contrôleur instancie le provider configuré (``fake`` par défaut) et appelle ``summarize()`` avec le texte complet de la transcription.
+5. Le signal ``summary_ready`` met à jour ``SummaryWidget``.
+
+### Indépendance du provider
+
+Le contrôleur ne dépend d'aucun provider concret : il utilise ``SummarizationFactory`` et la clé ``summarization.provider`` de la configuration. Seul le provider ``fake`` est activé dans cette version.

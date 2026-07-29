@@ -13,8 +13,14 @@ from typing import Any
 from meetingai.config.config_manager import ConfigManager
 from meetingai.controllers.export_controller import ExportController
 from meetingai.controllers.media_controller import MediaController
+from meetingai.controllers.summarization_controller import (
+    SummarizationController,
+)
 from meetingai.controllers.transcription_controller import TranscriptionController
 from meetingai.services.export.export_service import ExportService
+from meetingai.services.summarization.summarization_factory import (
+    SummarizationFactory,
+)
 from meetingai.core.service_registry import ServiceRegistry
 from meetingai.core.task_manager import TaskManager
 from meetingai.core.worker_manager import WorkerManager
@@ -79,8 +85,18 @@ class ApplicationContext:
             export_service=self.export_service,
             config_manager=self.config,
         )
+        self.summarization_factory: SummarizationFactory = SummarizationFactory()
+        self.summarization_controller: SummarizationController = (
+            SummarizationController(
+                factory=self.summarization_factory,
+                config_manager=self.config,
+            )
+        )
         self.transcription_controller.transcription_ready.connect(
             self.export_controller.on_transcription_ready
+        )
+        self.transcription_controller.transcription_ready.connect(
+            self.summarization_controller.on_transcription_ready
         )
         self._register_components()
 
@@ -104,6 +120,12 @@ class ApplicationContext:
         self.service_registry.register("export_service", self.export_service)
         self.service_registry.register(
             "export_controller", self.export_controller
+        )
+        self.service_registry.register(
+            "summarization_factory", self.summarization_factory
+        )
+        self.service_registry.register(
+            "summarization_controller", self.summarization_controller
         )
 
     def get_service(self, name: str) -> Any:

@@ -63,6 +63,9 @@ class MainWindow(QMainWindow):
                 transcription_controller=self._context.transcription_controller
                 if self._context
                 else None,
+                summarization_controller=self._context.summarization_controller
+                if self._context
+                else None,
             )
         )
         self._setup_menu_bar()
@@ -84,6 +87,10 @@ class MainWindow(QMainWindow):
                 )
                 self._action_manager.export_markdown_action.triggered.connect(
                     self._context.export_controller.export_markdown
+                )
+            if self._context.summarization_controller is not None:
+                self._action_manager.summarize_action.triggered.connect(
+                    self._context.summarization_controller.summarize_current_transcription
                 )
 
     def _open_settings(self) -> None:
@@ -120,6 +127,7 @@ class MainWindow(QMainWindow):
         tools_menu = QMenu("Outils", self)
         menu_bar.addMenu(tools_menu)
         tools_menu.addAction(actions["transcribe"])
+        tools_menu.addAction(actions["summarize"])
         tools_menu.addAction(actions["preferences"])
 
         menu_bar.addMenu(QMenu("Affichage", self))
