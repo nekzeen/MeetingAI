@@ -129,6 +129,44 @@ class TestFasterWhisperService(unittest.TestCase):
 
             faster_whisper_service._FASTER_WHISPER.WhisperModel.assert_called_once()
 
+    def test_is_model_present_false_when_missing(self) -> None:
+        """is_model_present retourne False si le répertoire n'existe pas."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = FasterWhisperService(
+                model_size="tiny",
+                models_directory=tmp_dir,
+            )
+
+            self.assertFalse(service.is_model_present())
+
+    def test_is_model_present_true_when_exists(self) -> None:
+        """is_model_present retourne True si le répertoire du modèle existe."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model_dir = Path(tmp_dir) / "tiny"
+            model_dir.mkdir()
+            service = FasterWhisperService(
+                model_size="tiny",
+                models_directory=tmp_dir,
+            )
+
+            self.assertTrue(service.is_model_present())
+
+    def test_load_model_error_includes_model_name_and_path(self) -> None:
+        """load_model indique le nom du modèle et l'emplacement recherché."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = FasterWhisperService(
+                model_size="tiny",
+                models_directory=tmp_dir,
+            )
+
+            with self.assertRaises(RuntimeError) as context:
+                service.load_model()
+
+            error_message = str(context.exception).lower()
+            self.assertIn("tiny", error_message)
+            self.assertIn(str(tmp_dir).lower(), error_message)
+            self.assertIn("introuvable", error_message)
+
     def test_transcribe_reports_error_when_model_missing(self) -> None:
         """transcribe retourne une erreur explicite si le modèle est introuvable."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -142,7 +180,10 @@ class TestFasterWhisperService(unittest.TestCase):
             with self.assertRaises(RuntimeError) as context:
                 service.transcribe(media, task)
 
-            self.assertIn("introuvable", str(context.exception).lower())
+            error_message = str(context.exception).lower()
+            self.assertIn("tiny", error_message)
+            self.assertIn(str(tmp_dir).lower(), error_message)
+            self.assertIn("introuvable", error_message)
 
     @patch(
         "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
@@ -158,6 +199,40 @@ class TestFasterWhisperService(unittest.TestCase):
             service.transcribe(media, task)
 
         self.assertIn("bibliothèque", str(context.exception).lower())
+
+    @patch(
+        "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
+        new=None,
+    )
+    def test_download_model_raises_when_library_unavailable(self) -> None:
+        """download_model refuse de télécharger si la bibliothèque est absente."""
+        with self.assertRaises(RuntimeError) as context:
+            FasterWhisperService.download_model()
+
+        self.assertIn("bibliothèque", str(context.exception).lower())
+
+    @patch(
+        "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
+        new=MagicMock(),
+    )
+    def test_download_model_delegates_to_faster_whisper(self) -> None:
+        """download_model délègue le téléchargement à faster-whisper."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            from meetingai.services.speech_to_text import faster_whisper_service
+
+            faster_whisper_service._FASTER_WHISPER.download_model.return_value = (
+                str(Path(tmp_dir) / "tiny")
+            )
+
+            path = FasterWhisperService.download_model(
+                model_size="tiny",
+                models_directory=tmp_dir,
+            )
+
+            self.assertEqual(path, Path(tmp_dir) / "tiny")
+            faster_whisper_service._FASTER_WHISPER.download_model.assert_called_once_with(
+                "tiny", output_dir=Path(tmp_dir)
+            )
 
     @patch(
         "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",

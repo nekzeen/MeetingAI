@@ -25,10 +25,18 @@ Le modèle `faster-whisper` est chargé de manière **paresseuse** :
 
 Le chargement du modèle est protégé par un verrou (`threading.Lock`) afin d'éviter que plusieurs transcriptions lancées simultanément ne chargent plusieurs fois le modèle.
 
+### Vérification de présence
+
+Avant le chargement, `FasterWhisperService` vérifie l'existence du répertoire attendu via `is_model_present()`. Si le répertoire est absent, une `RuntimeError` explicite est levée : elle indique le nom du modèle demandé et l'emplacement recherché.
+
+### Téléchargement / installation
+
+`FasterWhisperService.download_model()` offre un mécanisme de téléchargement explicite. Cette méthode délègue à `faster_whisper.download_model()` et retourne le chemin du modèle téléchargé. Elle n'est **jamais appelée automatiquement** ; l'appelant doit l'invoquer explicitement (interface utilisateur, outil d'installation, etc.).
+
 ### Erreurs
 
-Si le chargement échoue (bibliothèque absente, répertoire du modèle introuvable, erreur interne), `transcribe()` lève une `RuntimeError` explicite qui remonte jusqu'à l'utilisateur via le signal `transcription_failed` du contrôleur.
+Si le chargement échoue (bibliothèque absente, répertoire du modèle introuvable, erreur interne), `transcribe()` lève une `RuntimeError` explicite qui remonte jusqu'à l'utilisateur via le signal `transcription_failed` du contrôleur. Le message inclut le nom du modèle et l'emplacement recherché.
 
 ### Contrôle explicite
 
-La méthode publique `load_model()` reste disponible pour un chargement anticipé ou un rechargement manuel si nécessaire.
+Les méthodes publiques `load_model()` et `download_model()` restent disponibles pour un chargement anticipé, un rechargement manuel ou un téléchargement explicite.

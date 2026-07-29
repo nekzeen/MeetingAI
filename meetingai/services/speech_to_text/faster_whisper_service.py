@@ -32,8 +32,10 @@ class FasterWhisperService(SpeechToTextService):
     charge un modèle présent sur le disque local, transcrit un média et retourne
     un ``TranscriptionResult`` complet.
 
-    Aucun téléchargement automatique n'est réalisé : ``local_files_only`` est
-    systématiquement activé. Le modèle est recherché dans ``models_directory``.
+    Aucun téléchargement automatique n'est réalisé lors de la transcription :
+    ``local_files_only`` est systématiquement activé. Le modèle est recherché
+    dans ``models_directory``. Une méthode ``download_model()`` est fournie pour
+    un téléchargement explicite, mais elle n'est jamais appelée automatiquement.
 
     Args:
         model_size: Taille ou chemin du modèle Whisper à utiliser.
@@ -184,7 +186,9 @@ class FasterWhisperService(SpeechToTextService):
         model_path = self._resolve_model_path()
         if not model_path.exists():
             raise RuntimeError(
-                f"Le modèle faster-whisper est introuvable : {model_path}"
+                f"Le modèle faster-whisper '{self._model_size}' est introuvable "
+                f"à l'emplacement attendu : {model_path}. "
+                f"Vérifiez la configuration ou téléchargez le modèle."
             )
 
         try:
@@ -197,6 +201,54 @@ class FasterWhisperService(SpeechToTextService):
         except Exception as exc:
             raise RuntimeError(
                 f"Impossible de charger le modèle faster-whisper : {exc}"
+            ) from exc
+
+    def is_model_present(self) -> bool:
+        """Indique si le répertoire du modèle configuré existe localement."""
+        return self._resolve_model_path().exists()
+
+    @classmethod
+    def download_model(
+        cls,
+        model_size: str | None = None,
+        models_directory: str | Path | None = None,
+    ) -> Path:
+        """Télécharge le modèle faster-whisper demandé.
+
+        Cette méthode n'est jamais appelée automatiquement : elle doit être
+        invoquée explicitement par l'utilisateur ou un outil d'installation.
+
+        Args:
+            model_size: Taille du modèle à télécharger. Utilise la taille par
+                défaut si non fournie.
+            models_directory: Répertoire racine de téléchargement.
+
+        Returns:
+            Chemin du modèle téléchargé.
+
+        Raises:
+            RuntimeError: Si ``faster-whisper`` n'est pas installé ou si le
+                téléchargement échoue.
+        """
+        if _FASTER_WHISPER is None:
+            raise RuntimeError(
+                "La bibliothèque faster-whisper n'est pas installée."
+            )
+
+        size = model_size or cls._DEFAULT_MODEL_SIZE
+        directory = (
+            Path(models_directory)
+            if models_directory is not None
+            else cls._DEFAULT_MODELS_DIRECTORY
+        )
+
+        try:
+            return Path(
+                _FASTER_WHISPER.download_model(size, output_dir=directory)
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Échec du téléchargement du modèle faster-whisper '{size}' : {exc}"
             ) from exc
 
     def transcribe(self, media: MediaFile, task: Task) -> TranscriptionResult:
