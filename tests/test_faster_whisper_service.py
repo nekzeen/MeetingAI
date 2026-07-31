@@ -7,6 +7,10 @@ from unittest.mock import MagicMock, patch
 
 from meetingai.core.task import Task
 from meetingai.models.media_file import MediaFile
+from meetingai.runtime.providers.whisper_runtime_provider import (
+    WhisperRuntimeProvider,
+)
+from meetingai.runtime.runtime_status import RuntimeStatus
 from meetingai.services.speech_to_text.faster_whisper_service import (
     FasterWhisperService,
     _FASTER_WHISPER,
@@ -65,6 +69,8 @@ class TestFasterWhisperService(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             model_dir = Path(tmp_dir) / "tiny"
             model_dir.mkdir()
+            (model_dir / "config.json").touch()
+            (model_dir / "model.bin").touch()
             service = FasterWhisperService(
                 model_size="tiny",
                 models_directory=tmp_dir,
@@ -105,6 +111,8 @@ class TestFasterWhisperService(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             model_dir = Path(tmp_dir) / "tiny"
             model_dir.mkdir()
+            (model_dir / "config.json").touch()
+            (model_dir / "model.bin").touch()
             service = FasterWhisperService(
                 model_size="tiny",
                 models_directory=tmp_dir,
@@ -144,6 +152,8 @@ class TestFasterWhisperService(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             model_dir = Path(tmp_dir) / "tiny"
             model_dir.mkdir()
+            (model_dir / "config.json").touch()
+            (model_dir / "model.bin").touch()
             service = FasterWhisperService(
                 model_size="tiny",
                 models_directory=tmp_dir,
@@ -151,22 +161,20 @@ class TestFasterWhisperService(unittest.TestCase):
 
             self.assertTrue(service.is_model_present())
 
-    @patch(
-        "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
-        new=MagicMock(),
-    )
     def test_load_model_error_includes_model_name_and_path(self) -> None:
         """load_model indique le nom du modèle et l'emplacement recherché."""
-        from meetingai.services.speech_to_text import faster_whisper_service
-
-        faster_whisper_service._FASTER_WHISPER.WhisperModel.side_effect = (
-            RuntimeError("network unreachable")
-        )
+        provider = MagicMock(spec=WhisperRuntimeProvider)
+        provider.is_model_present.return_value = False
+        report = MagicMock()
+        report.status = RuntimeStatus.ERROR
+        report.message = "network unreachable"
+        provider.install_model.return_value = report
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = FasterWhisperService(
                 model_size="tiny",
                 models_directory=tmp_dir,
+                runtime_provider=provider,
             )
 
             with self.assertRaises(RuntimeError) as context:
@@ -176,24 +184,22 @@ class TestFasterWhisperService(unittest.TestCase):
             self.assertIn("tiny", error_message)
             self.assertIn(str(tmp_dir).lower(), error_message)
             self.assertIn("téléchargez", error_message)
-            self.assertIn("download_model", error_message)
+            self.assertIn("install_model", error_message)
 
-    @patch(
-        "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
-        new=MagicMock(),
-    )
     def test_transcribe_reports_error_when_model_missing(self) -> None:
         """transcribe retourne une erreur explicite si le modèle est introuvable."""
-        from meetingai.services.speech_to_text import faster_whisper_service
-
-        faster_whisper_service._FASTER_WHISPER.WhisperModel.side_effect = (
-            RuntimeError("network unreachable")
-        )
+        provider = MagicMock(spec=WhisperRuntimeProvider)
+        provider.is_model_present.return_value = False
+        report = MagicMock()
+        report.status = RuntimeStatus.ERROR
+        report.message = "network unreachable"
+        provider.install_model.return_value = report
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = FasterWhisperService(
                 model_size="tiny",
                 models_directory=tmp_dir,
+                runtime_provider=provider,
             )
             media = MagicMock(spec=MediaFile)
             task = MagicMock(spec=Task)
@@ -205,7 +211,7 @@ class TestFasterWhisperService(unittest.TestCase):
             self.assertIn("tiny", error_message)
             self.assertIn(str(tmp_dir).lower(), error_message)
             self.assertIn("téléchargez", error_message)
-            self.assertIn("download_model", error_message)
+            self.assertIn("install_model", error_message)
 
     @patch(
         "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
@@ -224,40 +230,6 @@ class TestFasterWhisperService(unittest.TestCase):
 
     @patch(
         "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
-        new=None,
-    )
-    def test_download_model_raises_when_library_unavailable(self) -> None:
-        """download_model refuse de télécharger si la bibliothèque est absente."""
-        with self.assertRaises(RuntimeError) as context:
-            FasterWhisperService.download_model()
-
-        self.assertIn("bibliothèque", str(context.exception).lower())
-
-    @patch(
-        "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
-        new=MagicMock(),
-    )
-    def test_download_model_delegates_to_faster_whisper(self) -> None:
-        """download_model délègue le téléchargement à faster-whisper."""
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            from meetingai.services.speech_to_text import faster_whisper_service
-
-            faster_whisper_service._FASTER_WHISPER.download_model.return_value = (
-                str(Path(tmp_dir) / "tiny")
-            )
-
-            path = FasterWhisperService.download_model(
-                model_size="tiny",
-                models_directory=tmp_dir,
-            )
-
-            self.assertEqual(path, Path(tmp_dir) / "tiny")
-            faster_whisper_service._FASTER_WHISPER.download_model.assert_called_once_with(
-                "tiny", output_dir=Path(tmp_dir)
-            )
-
-    @patch(
-        "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
         new=MagicMock(),
     )
     def test_transcribe_reports_progress_via_callback(self) -> None:
@@ -265,6 +237,8 @@ class TestFasterWhisperService(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             model_dir = Path(tmp_dir) / "tiny"
             model_dir.mkdir()
+            (model_dir / "config.json").touch()
+            (model_dir / "model.bin").touch()
             service = FasterWhisperService(
                 model_size="tiny",
                 models_directory=tmp_dir,
@@ -312,6 +286,8 @@ class TestFasterWhisperService(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             model_dir = Path(tmp_dir) / "tiny"
             model_dir.mkdir()
+            (model_dir / "config.json").touch()
+            (model_dir / "model.bin").touch()
             service = FasterWhisperService(
                 model_size="tiny",
                 models_directory=tmp_dir,
@@ -350,6 +326,8 @@ class TestFasterWhisperService(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             model_dir = Path(tmp_dir) / "tiny"
             model_dir.mkdir()
+            (model_dir / "config.json").touch()
+            (model_dir / "model.bin").touch()
             service = FasterWhisperService(
                 model_size="tiny",
                 models_directory=tmp_dir,
@@ -382,6 +360,10 @@ class TestFasterWhisperService(unittest.TestCase):
         ]
 
         with tempfile.TemporaryDirectory() as tmp_dir:
+            model_dir = Path(tmp_dir) / "tiny"
+            model_dir.mkdir()
+            (model_dir / "config.json").touch()
+            (model_dir / "model.bin").touch()
             service = FasterWhisperService(
                 model_size="tiny",
                 models_directory=tmp_dir,
@@ -416,6 +398,10 @@ class TestFasterWhisperService(unittest.TestCase):
         )
 
         with tempfile.TemporaryDirectory() as tmp_dir:
+            model_dir = Path(tmp_dir) / "tiny"
+            model_dir.mkdir()
+            (model_dir / "config.json").touch()
+            (model_dir / "model.bin").touch()
             service = FasterWhisperService(
                 model_size="tiny",
                 models_directory=tmp_dir,
@@ -443,6 +429,10 @@ class TestFasterWhisperService(unittest.TestCase):
         )
 
         with tempfile.TemporaryDirectory() as tmp_dir:
+            model_dir = Path(tmp_dir) / "tiny"
+            model_dir.mkdir()
+            (model_dir / "config.json").touch()
+            (model_dir / "model.bin").touch()
             service = FasterWhisperService(
                 model_size="tiny",
                 models_directory=tmp_dir,
@@ -479,6 +469,10 @@ class TestFasterWhisperService(unittest.TestCase):
         cpu_model.transcribe.return_value = ([segment], info)
 
         with tempfile.TemporaryDirectory() as tmp_dir:
+            model_dir = Path(tmp_dir) / "tiny"
+            model_dir.mkdir()
+            (model_dir / "config.json").touch()
+            (model_dir / "model.bin").touch()
             service = FasterWhisperService(
                 model_size="tiny",
                 models_directory=tmp_dir,

@@ -9,6 +9,10 @@ from unittest.mock import MagicMock, patch
 
 from meetingai.core.task import Task
 from meetingai.models.media_file import MediaFile, MediaType
+from meetingai.runtime.providers.whisper_runtime_provider import (
+    WhisperRuntimeProvider,
+)
+from meetingai.runtime.runtime_status import RuntimeStatus
 from meetingai.services.speech_to_text.faster_whisper_service import (
     FasterWhisperService,
     _FASTER_WHISPER,
@@ -21,22 +25,20 @@ from meetingai.services.speech_to_text.transcription_result import (
 class TestFasterWhisperModelLoading(unittest.TestCase):
     """Tests du chargement du modèle faster-whisper."""
 
-    @patch(
-        "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
-        new=MagicMock(),
-    )
     def test_load_model_raises_when_directory_missing(self) -> None:
         """load_model échoue proprement si le modèle n'est ni local ni accessible."""
-        from meetingai.services.speech_to_text import faster_whisper_service
-
-        faster_whisper_service._FASTER_WHISPER.WhisperModel.side_effect = (
-            RuntimeError("network unreachable")
-        )
+        provider = MagicMock(spec=WhisperRuntimeProvider)
+        provider.is_model_present.return_value = False
+        report = MagicMock()
+        report.status = RuntimeStatus.ERROR
+        report.message = "network unreachable"
+        provider.install_model.return_value = report
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             service = FasterWhisperService(
                 model_size="tiny",
                 models_directory=tmp_dir,
+                runtime_provider=provider,
             )
 
             with self.assertRaises(RuntimeError) as context:
@@ -44,8 +46,9 @@ class TestFasterWhisperModelLoading(unittest.TestCase):
 
             error_message = str(context.exception).lower()
             self.assertIn("tiny", error_message)
+            self.assertIn(str(tmp_dir).lower(), error_message)
             self.assertIn("téléchargez", error_message)
-            self.assertIn("download_model", error_message)
+            self.assertIn("install_model", error_message)
 
     @patch(
         "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",

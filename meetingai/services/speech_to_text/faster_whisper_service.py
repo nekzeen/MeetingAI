@@ -14,6 +14,10 @@ _LOGGER = logging.getLogger(__name__)
 
 from meetingai.core.task import Task
 from meetingai.models.media_file import MediaFile
+from meetingai.runtime.providers.whisper_runtime_provider import (
+    WhisperRuntimeProvider,
+)
+from meetingai.runtime.runtime_status import RuntimeStatus
 from meetingai.services.speech_to_text.speech_to_text_service import (
     SpeechToTextService,
 )
@@ -161,6 +165,7 @@ class FasterWhisperService(SpeechToTextService):
         models_directory: str | Path | None = None,
         device: str = "cpu",
         compute_type: str = "int8",
+        runtime_provider: WhisperRuntimeProvider | None = None,
     ) -> None:
         """Initialise le service avec la configuration du modèle."""
         self._model_size = model_size or self._DEFAULT_MODEL_SIZE
@@ -174,10 +179,10 @@ class FasterWhisperService(SpeechToTextService):
         self._model: Any | None = None
         self._model_lock = threading.Lock()
         self._used_cpu_fallback: bool = False
-
-    def _resolve_model_path(self) -> Path:
-        """Retourne le chemin local attendu pour le modèle configuré."""
-        return self._models_directory / self._model_size
+        self._provider = runtime_provider or WhisperRuntimeProvider(
+            model_size=self._model_size,
+            models_directory=self._models_directory,
+        )
 
     def _is_cuda_error(self, exc: Exception) -> bool:
         """Indique si une exception correspond à un échec d'initialisation CUDA."""
@@ -200,28 +205,33 @@ class FasterWhisperService(SpeechToTextService):
         device: str,
         compute_type: str,
     ) -> Any:
-        """Construit une instance ``WhisperModel`` selon le périphérique choisi.
+        """Construit une instance ``WhisperModel`` depuis le répertoire local.
 
-        Si un répertoire local existe, il est utilisé avec
-        ``local_files_only=True``. Sinon, le mécanisme natif de
-        ``faster-whisper`` est utilisé.
+        Si le modèle n'est pas encore présent, le provider Runtime le télécharge
+        au préalable.
         """
-        local_model_path = self._resolve_model_path()
-
-        if local_model_path.exists():
-            return _FASTER_WHISPER.WhisperModel(
-                str(local_model_path),
-                device=device,
-                compute_type=compute_type,
-                local_files_only=True,
+        if not self._provider.is_model_present(self._model_size, self._models_directory):
+            report = self._provider.install_model(
+                self._model_size, self._models_directory
             )
+            if report.status != RuntimeStatus.HEALTHY:
+                raise RuntimeError(
+                    f"Impossible de rendre le modèle faster-whisper "
+                    f"'{self._model_size}' disponible. {report.message} "
+                    f"Vérifiez votre connexion réseau et l'accès au répertoire "
+                    f"{self._models_directory}, ou installez le modèle "
+                    f"explicitement avec WhisperRuntimeProvider.install_model("
+                    f"'{self._model_size}', '{self._models_directory}')."
+                )
 
+        local_model_path = self._provider.model_path(
+            self._model_size, self._models_directory
+        )
         return _FASTER_WHISPER.WhisperModel(
-            self._model_size,
+            str(local_model_path),
             device=device,
             compute_type=compute_type,
-            download_root=str(self._models_directory),
-            local_files_only=False,
+            local_files_only=True,
         )
 
     def load_model(self) -> None:
@@ -257,7 +267,7 @@ class FasterWhisperService(SpeechToTextService):
                     f"'{self._model_size}'. Vérifiez votre connexion réseau, "
                     f"l'accès au répertoire {self._models_directory}, ou "
                     f"téléchargez le modèle explicitement avec :\n"
-                    f"FasterWhisperService.download_model("
+                    f"WhisperRuntimeProvider.install_model("
                     f"'{self._model_size}', '{self._models_directory}')"
                 ) from exc
 
@@ -284,7 +294,7 @@ class FasterWhisperService(SpeechToTextService):
                     f"Vérifiez votre connexion réseau, "
                     f"l'accès au répertoire {self._models_directory}, ou "
                     f"téléchargez le modèle explicitement avec :\n"
-                    f"FasterWhisperService.download_model("
+                    f"WhisperRuntimeProvider.install_model("
                     f"'{self._model_size}', '{self._models_directory}')"
                 ) from cpu_exc
 
@@ -295,52 +305,10 @@ class FasterWhisperService(SpeechToTextService):
             )
 
     def is_model_present(self) -> bool:
-        """Indique si le répertoire du modèle configuré existe localement."""
-        return self._resolve_model_path().exists()
-
-    @classmethod
-    def download_model(
-        cls,
-        model_size: str | None = None,
-        models_directory: str | Path | None = None,
-    ) -> Path:
-        """Télécharge le modèle faster-whisper demandé.
-
-        Cette méthode n'est jamais appelée automatiquement : elle doit être
-        invoquée explicitement par l'utilisateur ou un outil d'installation.
-
-        Args:
-            model_size: Taille du modèle à télécharger. Utilise la taille par
-                défaut si non fournie.
-            models_directory: Répertoire racine de téléchargement.
-
-        Returns:
-            Chemin du modèle téléchargé.
-
-        Raises:
-            RuntimeError: Si ``faster-whisper`` n'est pas installé ou si le
-                téléchargement échoue.
-        """
-        if _FASTER_WHISPER is None:
-            raise RuntimeError(
-                "La bibliothèque faster-whisper n'est pas installée."
-            )
-
-        size = model_size or cls._DEFAULT_MODEL_SIZE
-        directory = (
-            Path(models_directory)
-            if models_directory is not None
-            else cls._DEFAULT_MODELS_DIRECTORY
+        """Indique si le modèle configuré est présent et valide localement."""
+        return self._provider.is_model_present(
+            self._model_size, self._models_directory
         )
-
-        try:
-            return Path(
-                _FASTER_WHISPER.download_model(size, output_dir=directory)
-            )
-        except Exception as exc:
-            raise RuntimeError(
-                f"Échec du téléchargement du modèle faster-whisper '{size}' : {exc}"
-            ) from exc
 
     def transcribe(
         self,

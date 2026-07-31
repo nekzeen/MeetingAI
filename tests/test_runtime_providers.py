@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import sys
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from meetingai.runtime.providers import (
@@ -46,7 +48,15 @@ class TestPythonRuntimeProvider(unittest.TestCase):
 
 
 class TestWhisperRuntimeProvider(unittest.TestCase):
-    """Tests du provider faster-whisper."""
+    """Tests du provider faster-whisper et de la gestion des modèles."""
+
+    def _create_valid_model(self, root: str, name: str = "small") -> Path:
+        """Crée un répertoire de modèle valide avec les fichiers requis."""
+        model_dir = Path(root) / name
+        model_dir.mkdir(parents=True, exist_ok=True)
+        (model_dir / "config.json").touch()
+        (model_dir / "model.bin").touch()
+        return model_dir
 
     def test_name_and_capabilities(self) -> None:
         """Le provider couvre la transcription."""
@@ -57,7 +67,9 @@ class TestWhisperRuntimeProvider(unittest.TestCase):
             [RuntimeCapability.SPEECH_TO_TEXT],
         )
 
-    @patch("meetingai.runtime.providers.whisper_runtime_provider.importlib.util.find_spec")
+    @patch(
+        "meetingai.runtime.providers.whisper_runtime_provider.importlib.util.find_spec"
+    )
     def test_diagnose_missing_package(self, mock_find_spec: MagicMock) -> None:
         """Le diagnostic signale MISSING si faster-whisper n'est pas installé."""
         mock_find_spec.return_value = None
@@ -73,26 +85,191 @@ class TestWhisperRuntimeProvider(unittest.TestCase):
         "meetingai.runtime.providers.whisper_runtime_provider.importlib.util.find_spec"
     )
     @patch("meetingai.runtime.providers.whisper_runtime_provider.version")
-    def test_diagnose_installed_package(
+    def test_diagnose_installed_package_and_model(
         self,
         mock_version: MagicMock,
         mock_find_spec: MagicMock,
     ) -> None:
-        """Le diagnostic retourne HEALTHY avec la version du package."""
-        mock_find_spec.return_value = MagicMock()
-        mock_version.return_value = "0.10.0"
+        """Le diagnostic retourne HEALTHY si le package et le modèle sont présents."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            self._create_valid_model(tmp_dir)
+            mock_find_spec.return_value = MagicMock()
+            mock_version.return_value = "0.10.0"
+            provider = WhisperRuntimeProvider(models_directory=tmp_dir)
+
+            self.assertEqual(provider.status(), RuntimeStatus.HEALTHY)
+            report = provider.diagnose()
+
+            self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+            self.assertEqual(report.details.get("version"), "0.10.0")
+            self.assertIn("small", report.details.get("installed_models", []))
+
+    @patch(
+        "meetingai.runtime.providers.whisper_runtime_provider.importlib.util.find_spec"
+    )
+    @patch("meetingai.runtime.providers.whisper_runtime_provider.version")
+    def test_diagnose_installed_package_missing_model(
+        self,
+        mock_version: MagicMock,
+        mock_find_spec: MagicMock,
+    ) -> None:
+        """Le diagnostic retourne MISSING si le modèle n'est pas présent."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            mock_find_spec.return_value = MagicMock()
+            mock_version.return_value = "0.10.0"
+            provider = WhisperRuntimeProvider(models_directory=tmp_dir)
+
+            self.assertEqual(provider.status(), RuntimeStatus.MISSING)
+            report = provider.diagnose()
+
+            self.assertEqual(report.status, RuntimeStatus.MISSING)
+            self.assertIn("small", report.message)
+
+    def test_is_model_present_requires_required_files(self) -> None:
+        """is_model_present retourne False si les fichiers requis sont absents."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            (Path(tmp_dir) / "small").mkdir()
+            provider = WhisperRuntimeProvider(models_directory=tmp_dir)
+
+            self.assertFalse(provider.is_model_present())
+
+    def test_is_model_present_true_when_valid(self) -> None:
+        """is_model_present retourne True si le modèle est complet."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            self._create_valid_model(tmp_dir)
+            provider = WhisperRuntimeProvider(models_directory=tmp_dir)
+
+            self.assertTrue(provider.is_model_present())
+
+    def test_list_installed_models(self) -> None:
+        """list_installed_models retourne les modèles valides du répertoire."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            self._create_valid_model(tmp_dir, "small")
+            self._create_valid_model(tmp_dir, "tiny")
+            (Path(tmp_dir) / "empty").mkdir()
+            provider = WhisperRuntimeProvider(models_directory=tmp_dir)
+
+            models = provider.list_installed_models()
+
+            self.assertEqual(models, ["small", "tiny"])
+
+    @patch.object(WhisperRuntimeProvider, "_has_package", return_value=True)
+    @patch.object(
+        WhisperRuntimeProvider,
+        "_faster_whisper_module",
+        return_value=MagicMock(download_model=lambda _s, output_dir: output_dir / "small"),
+    )
+    def test_install_model_success(
+        self,
+        mock_module: MagicMock,
+        mock_package: MagicMock,
+    ) -> None:
+        """install_model retourne HEALTHY en cas de succès."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            provider = WhisperRuntimeProvider(models_directory=tmp_dir)
+            report = provider.install_model("small", tmp_dir)
+
+            self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+            self.assertIn("model_path", report.details)
+
+    @patch.object(WhisperRuntimeProvider, "_has_package", return_value=False)
+    def test_install_model_fails_when_package_missing(
+        self,
+        mock_package: MagicMock,
+    ) -> None:
+        """install_model retourne MISSING si faster-whisper n'est pas installé."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            provider = WhisperRuntimeProvider(models_directory=tmp_dir)
+            report = provider.install_model("small", tmp_dir)
+
+            self.assertEqual(report.status, RuntimeStatus.MISSING)
+
+    @patch.object(WhisperRuntimeProvider, "_has_package", return_value=True)
+    @patch.object(
+        WhisperRuntimeProvider,
+        "_faster_whisper_module",
+        return_value=MagicMock(
+            download_model=MagicMock(side_effect=RuntimeError("network down"))
+        ),
+    )
+    def test_install_model_reports_error(
+        self,
+        mock_module: MagicMock,
+        mock_package: MagicMock,
+    ) -> None:
+        """install_model retourne ERROR en cas d'échec de téléchargement."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            provider = WhisperRuntimeProvider(models_directory=tmp_dir)
+            report = provider.install_model("small", tmp_dir)
+
+            self.assertEqual(report.status, RuntimeStatus.ERROR)
+            self.assertIn("network down", report.message)
+
+    @patch.object(WhisperRuntimeProvider, "_has_package", return_value=True)
+    def test_install_delegates_to_install_model(
+        self,
+        mock_package: MagicMock,
+    ) -> None:
+        """install() appelle install_model avec le modèle configuré."""
         provider = WhisperRuntimeProvider()
+        provider.install_model = MagicMock(return_value=MagicMock(status=RuntimeStatus.HEALTHY))  # type: ignore[assignment]
 
-        self.assertEqual(provider.status(), RuntimeStatus.HEALTHY)
-        report = provider.diagnose()
+        provider.install()
 
-        self.assertEqual(report.status, RuntimeStatus.HEALTHY)
-        self.assertEqual(report.details.get("version"), "0.10.0")
+        provider.install_model.assert_called_once_with("small", Path("models"))
 
-    def test_install_not_supported(self) -> None:
-        """L'installation automatique n'est pas supportée."""
-        provider = WhisperRuntimeProvider()
-        self.assertFalse(provider.can_install())
+    def test_remove_model_success(self) -> None:
+        """remove_model supprime le répertoire du modèle."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            self._create_valid_model(tmp_dir)
+            provider = WhisperRuntimeProvider(models_directory=tmp_dir)
+
+            report = provider.remove_model("small", tmp_dir)
+
+            self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+            self.assertFalse(provider.is_model_present("small", tmp_dir))
+
+    def test_remove_model_missing(self) -> None:
+        """remove_model retourne MISSING si le modèle n'existe pas."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            provider = WhisperRuntimeProvider(models_directory=tmp_dir)
+            report = provider.remove_model("small", tmp_dir)
+
+            self.assertEqual(report.status, RuntimeStatus.MISSING)
+
+    def test_verify_model_integrity_healthy(self) -> None:
+        """verify_model_integrity retourne HEALTHY pour un modèle complet."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            self._create_valid_model(tmp_dir)
+            provider = WhisperRuntimeProvider(models_directory=tmp_dir)
+
+            report = provider.verify_model_integrity("small", tmp_dir)
+
+            self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+
+    def test_verify_model_integrity_error_when_files_missing(self) -> None:
+        """verify_model_integrity retourne ERROR si des fichiers sont manquants."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            (Path(tmp_dir) / "small").mkdir()
+            (Path(tmp_dir) / "small" / "config.json").touch()
+            provider = WhisperRuntimeProvider(models_directory=tmp_dir)
+
+            report = provider.verify_model_integrity("small", tmp_dir)
+
+            self.assertEqual(report.status, RuntimeStatus.ERROR)
+            self.assertIn("model.bin", report.details.get("missing_files", []))
+
+    def test_can_install_when_package_present(self) -> None:
+        """can_install retourne True si faster-whisper est installé."""
+        with patch.object(WhisperRuntimeProvider, "_has_package", return_value=True):
+            provider = WhisperRuntimeProvider()
+            self.assertTrue(provider.can_install())
+
+    def test_cannot_install_when_package_missing(self) -> None:
+        """can_install retourne False si faster-whisper est manquant."""
+        with patch.object(WhisperRuntimeProvider, "_has_package", return_value=False):
+            provider = WhisperRuntimeProvider()
+            self.assertFalse(provider.can_install())
 
 
 class TestFFmpegRuntimeProvider(unittest.TestCase):
