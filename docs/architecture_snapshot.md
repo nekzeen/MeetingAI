@@ -22,6 +22,9 @@ les briques du noyau (`core`) et les services (`services`).
 │                    Core                     │
 │  TaskManager · WorkerManager · Workers       │
 ├─────────────────────────────────────────────┤
+│                   Runtime                     │
+│  RuntimeManager · RuntimeProvider · Reports   │
+├─────────────────────────────────────────────┤
 │                   Services                  │
 │  Speech-To-Text · Summarization · Export    │
 │  Media · Models                             │
@@ -31,8 +34,9 @@ les briques du noyau (`core`) et les services (`services`).
 ### Règles de dépendance
 
 - `gui` dépend de `controllers` et de `core` uniquement via les signaux.
-- `controllers` dépend de `core` et de `services`.
+- `controllers` dépend de `core`, de `runtime` et de `services`.
 - `core` ne dépend pas de `gui` ni de `controllers`.
+- `runtime` ne dépend pas de `gui`, de `controllers` ni de `core`.
 - `services` ne dépendent ni de `gui`, ni de `controllers`, ni du flux applicatif.
 - Aucune dépendance circulaire n'est autorisée.
 
