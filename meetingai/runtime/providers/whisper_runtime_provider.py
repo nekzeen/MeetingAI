@@ -10,6 +10,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+from meetingai.runtime.runtime_action import RuntimeAction, RuntimeActionType
 from meetingai.runtime.runtime_capability import RuntimeCapability
 from meetingai.runtime.runtime_provider import RuntimeProvider
 from meetingai.runtime.runtime_report import RuntimeReport
@@ -204,6 +205,42 @@ class WhisperRuntimeProvider(RuntimeProvider):
     def install(self) -> RuntimeReport:
         """Installe le modèle configuré via faster-whisper."""
         return self.install_model(self._model_size, self._models_directory)
+
+    def suggested_actions(self, report: RuntimeReport) -> list[RuntimeAction]:
+        """Propose des actions d'installation ou de téléchargement de modèle."""
+        if report.status == RuntimeStatus.HEALTHY:
+            return []
+
+        if not self._has_package():
+            return [
+                RuntimeAction(
+                    action_type=RuntimeActionType.INSTALL_PACKAGE,
+                    provider_name=self.name,
+                    message="Installer faster-whisper.",
+                    description="Le package faster-whisper n'est pas installé.",
+                    available=False,
+                    requires_user=True,
+                    parameters={"package": "faster-whisper"},
+                )
+            ]
+
+        if not self.is_model_present(self._model_size, self._models_directory):
+            return [
+                RuntimeAction(
+                    action_type=RuntimeActionType.DOWNLOAD_MODEL,
+                    provider_name=self.name,
+                    message=f"Télécharger le modèle Whisper '{self._model_size}'.",
+                    description=f"Le modèle est absent de {self._models_directory}.",
+                    available=True,
+                    requires_user=True,
+                    parameters={
+                        "model_size": self._model_size,
+                        "model_path": str(self.model_path()),
+                    },
+                )
+            ]
+
+        return super().suggested_actions(report)
 
     def install_model(
         self,

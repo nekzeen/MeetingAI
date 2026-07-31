@@ -10,6 +10,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+from meetingai.runtime.runtime_action import RuntimeAction, RuntimeActionType
 from meetingai.runtime.runtime_capability import RuntimeCapability
 from meetingai.runtime.runtime_provider import RuntimeProvider
 from meetingai.runtime.runtime_report import RuntimeReport
@@ -389,6 +390,55 @@ class OllamaRuntimeProvider(RuntimeProvider):
                 "model_report": model_report.details,
             },
         )
+
+    def suggested_actions(self, report: RuntimeReport) -> list[RuntimeAction]:
+        """Propose des actions selon l'état d'Ollama et du modèle."""
+        if report.status == RuntimeStatus.HEALTHY:
+            return []
+
+        if not self.is_ollama_present():
+            return [
+                RuntimeAction(
+                    action_type=RuntimeActionType.INSTALL_PACKAGE,
+                    provider_name=self.name,
+                    message="Installer Ollama.",
+                    description="Le package ou le binaire Ollama n'est pas installé.",
+                    available=False,
+                    requires_user=True,
+                    parameters={"host": self._host},
+                )
+            ]
+
+        if not self.is_server_reachable():
+            return [
+                RuntimeAction(
+                    action_type=RuntimeActionType.START_SERVER,
+                    provider_name=self.name,
+                    message="Démarrer le serveur Ollama.",
+                    description=f"Le serveur Ollama sur {self._host} ne répond pas.",
+                    available=False,
+                    requires_user=True,
+                    parameters={"host": self._host},
+                )
+            ]
+
+        if report.status in (RuntimeStatus.MISSING, RuntimeStatus.DEGRADED):
+            return [
+                RuntimeAction(
+                    action_type=RuntimeActionType.DOWNLOAD_MODEL,
+                    provider_name=self.name,
+                    message=f"Télécharger le modèle Ollama '{self._model}'.",
+                    description=f"Le modèle '{self._model}' n'est pas installé sur le serveur.",
+                    available=self.can_install(),
+                    requires_user=True,
+                    parameters={
+                        "host": self._host,
+                        "model": self._model,
+                    },
+                )
+            ]
+
+        return super().suggested_actions(report)
 
     def can_install(self) -> bool:
         """L'installation d'un modèle est possible si le serveur est joignable."""

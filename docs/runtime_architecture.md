@@ -114,6 +114,32 @@ les appels au provider et interprètent les ``RuntimeReport``.
 - un message résumé ;
 - des détails techniques libres (versions, chemins, erreurs).
 
+### RuntimeAction
+
+`RuntimeAction` représente une action proposée à l'utilisateur pour corriger un
+état dégradé. Chaque action contient un `RuntimeActionType` (installation,
+téléchargement, démarrage, configuration, réparation, réessai...), un libellé,
+une description et un indicateur `available` (peut être exécutée
+automatiquement ou nécessite une intervention humaine).
+
+### RuntimeAssistant
+
+`RuntimeAssistant` est le moteur de guidage utilisateur. Il consomme un
+`RuntimeManager`, exécute les diagnostics et expose une API pour :
+
+- `analyze()` : retourne l'ensemble des actions suggérées par tous les providers.
+- `first_run_guide()` : filtre les actions utiles lors du premier lancement.
+- `actions_for(provider_name)` : retourne les actions d'un provider donné.
+- `top_action()` : retourne l'action prioritaire.
+- `is_ready()` : indique si tout l'environnement est sain.
+
+Chaque `RuntimeProvider` expose `suggested_actions(report)` pour traduire un
+`RuntimeReport` en actions concrètes. Le provider propose une suggestion par
+défaut (installation/réparation/réessai/configuration) et les providers
+spécialisés (`WhisperRuntimeProvider`, `OllamaRuntimeProvider`) surchargent
+la méthode pour proposer des actions plus fines (téléchargement de modèle,
+démarrage du serveur Ollama, etc.).
+
 ### RuntimeManager
 
 `RuntimeManager` agrège les providers et expose des opérations globales :
