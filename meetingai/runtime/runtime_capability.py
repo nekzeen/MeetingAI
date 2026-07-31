@@ -16,5 +16,6 @@ class RuntimeCapability(Enum):
     SPEECH_TO_TEXT = "speech_to_text"
     GPU_ACCELERATION = "gpu_acceleration"
     SUMMARIZATION = "summarization"
+    MEDIA_PROCESSING = "media_processing"
     PDF_EXPORT = "pdf_export"
     DOCX_EXPORT = "docx_export"

@@ -55,9 +55,16 @@ implémenter. Elle expose :
 - `can_install()` : indique si une installation/réparation est possible.
 - `install()` : procède à l'installation/réparation.
 
-À ce stade, aucun provider concret n'est fourni. Les implémentations futures
-représenteront par exemple le runtime Python, les drivers CUDA, les modèles
-Whisper, etc.
+Les providers concrets suivants sont fournis et enregistrés par
+``create_runtime_manager`` :
+
+- ``PythonRuntimeProvider`` : version de Python, plateforme, packages clés.
+- ``FFmpegRuntimeProvider`` : présence et version de FFmpeg.
+- ``WhisperRuntimeProvider`` : présence et version de faster-whisper.
+- ``OllamaRuntimeProvider`` : accessibilité du serveur Ollama local.
+- ``CudaRuntimeProvider`` : disponibilité de CUDA via torch ou nvidia-smi.
+
+Aucun de ces providers ne modifie le système lors du diagnostic.
 
 ### RuntimeReport
 
@@ -104,8 +111,9 @@ Aucune modification de `RuntimeManager` n'est nécessaire.
 
 ## Cycle de vie
 
-1. L'application construit un `RuntimeManager` au démarrage.
-2. Elle y enregistre les providers pertinents.
+1. L'application construit un `RuntimeManager` via `create_runtime_manager()` au
+   démarrage.
+2. Cette factory enregistre automatiquement les providers standard.
 3. L'interface graphique peut interroger `status()` ou `report()` pour
    afficher l'état du système.
 4. Avant une opération nécessitant une capacité, `ensure(capability)` permet

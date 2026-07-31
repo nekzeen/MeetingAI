@@ -196,6 +196,22 @@ class TestRuntimeManager(unittest.TestCase):
         self.assertEqual(manager.providers, [provider])
 
 
+class TestRuntimeFactory(unittest.TestCase):
+    """Tests de la factory Runtime."""
+
+    def test_create_runtime_manager_registers_all_providers(self) -> None:
+        """create_runtime_manager enregistre les providers standard."""
+        from meetingai.runtime import create_runtime_manager
+
+        manager = create_runtime_manager()
+        names = {provider.name for provider in manager.providers}
+
+        self.assertGreaterEqual(
+            names,
+            {"python", "ffmpeg", "whisper", "ollama", "cuda"},
+        )
+
+
 class TestRuntimeProviderContract(unittest.TestCase):
     """Tests du contrat RuntimeProvider."""
 
