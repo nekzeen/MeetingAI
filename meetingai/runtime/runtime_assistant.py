@@ -24,6 +24,11 @@ class RuntimeAssistant:
         """Initialise l'assistant avec un RuntimeManager."""
         self._manager = manager
 
+    @property
+    def manager(self) -> RuntimeManager:
+        """Retourne le RuntimeManager utilisé."""
+        return self._manager
+
     def _reports(self) -> list[RuntimeReport]:
         """Exécute le diagnostic complet de tous les providers."""
         return self._manager.report()

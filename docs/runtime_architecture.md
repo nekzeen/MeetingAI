@@ -140,6 +140,30 @@ spécialisés (`WhisperRuntimeProvider`, `OllamaRuntimeProvider`) surchargent
 la méthode pour proposer des actions plus fines (téléchargement de modèle,
 démarrage du serveur Ollama, etc.).
 
+### RuntimeGuard
+
+`RuntimeGuard` protège les opérations métier en vérifiant les prérequis
+Runtime avant exécution. Il repose sur `RuntimeAssistant` pour interroger les
+providers couvrant les capacités requises.
+
+`RuntimeGuardResult` encapsule le résultat d'une vérification :
+
+- `allowed` : indique si l'opération peut être lancée.
+- `reports` : rapports de diagnostic des providers concernés.
+- `actions` : actions recommandées si la vérification échoue.
+- `details` : capacités requises et informations annexes.
+
+Méthodes de garde proposées :
+
+- `check(*capabilities)` : vérification générique pour une ou plusieurs capacités.
+- `check_transcription()` : requiert `SPEECH_TO_TEXT` et `MEDIA_PROCESSING`.
+- `check_summary()` : requiert `SUMMARIZATION`.
+- `check_pipeline()` : requiert `SPEECH_TO_TEXT`, `MEDIA_PROCESSING` et `SUMMARIZATION`.
+
+Si tous les providers d'une capacité sont sains, l'opération est autorisée.
+Dans le cas contraire, les actions recommandées sont retournées sans lancer le
+traitement, ce qui prépare l'intégration avec un futur assistant graphique.
+
 ### RuntimeManager
 
 `RuntimeManager` agrège les providers et expose des opérations globales :

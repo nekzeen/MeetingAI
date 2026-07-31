@@ -8,6 +8,7 @@ from meetingai.runtime.runtime_action import RuntimeAction, RuntimeActionType
 from meetingai.runtime.runtime_assistant import RuntimeAssistant
 from meetingai.runtime.runtime_capability import RuntimeCapability
 from meetingai.runtime.runtime_factory import create_runtime_manager
+from meetingai.runtime.runtime_guard import RuntimeGuard, RuntimeGuardResult
 from meetingai.runtime.runtime_manager import RuntimeManager
 from meetingai.runtime.runtime_provider import RuntimeProvider
 from meetingai.runtime.runtime_report import RuntimeReport
@@ -18,6 +19,8 @@ __all__ = [
     "RuntimeActionType",
     "RuntimeAssistant",
     "RuntimeCapability",
+    "RuntimeGuard",
+    "RuntimeGuardResult",
     "RuntimeManager",
     "RuntimeProvider",
     "RuntimeReport",
