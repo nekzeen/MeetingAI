@@ -53,6 +53,9 @@ output/*
 # Logs
 *.log
 
+# Modèles téléchargés par faster-whisper
+models/
+
 # Configuration locale
 config/config.json
 !config/config.example.json
