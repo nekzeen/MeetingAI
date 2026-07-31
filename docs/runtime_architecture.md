@@ -61,7 +61,7 @@ Les providers concrets suivants sont fournis et enregistrés par
 - ``PythonRuntimeProvider`` : version de Python, plateforme, packages clés.
 - ``FFmpegRuntimeProvider`` : présence et version de FFmpeg.
 - ``WhisperRuntimeProvider`` : package faster-whisper **et gestion des modèles**.
-- ``OllamaRuntimeProvider`` : accessibilité du serveur Ollama local.
+- ``OllamaRuntimeProvider`` : serveur Ollama local, **version, et gestion des modèles**.
 - ``CudaRuntimeProvider`` : disponibilité de CUDA via torch ou nvidia-smi.
 
 Aucun de ces providers ne modifie le système lors du diagnostic.
@@ -83,6 +83,26 @@ un provider injecté via le paramètre ``runtime_provider`` et, par défaut, en 
 un avec sa configuration. Lors du chargement, le service demande au provider
 d'installer le modèle si celui-ci n'est pas présent, puis charge le modèle en
 mode ``local_files_only=True``.
+
+## Gestion des modèles et du serveur Ollama
+
+``OllamaRuntimeProvider`` est le gestionnaire unique d'Ollama. Il détecte le
+package ou le binaire Ollama, interroge le serveur local et offre les opérations
+suivantes, chacune retournant un ``RuntimeReport`` :
+
+- ``is_ollama_present()`` : détection du package Python ou du binaire.
+- ``is_server_reachable()`` : vérification que le serveur répond.
+- ``get_version()`` : récupération de la version du serveur.
+- ``list_installed_models()`` : liste des modèles présents sur le serveur.
+- ``install_model(model_name)`` : téléchargement d'un modèle via ``/api/pull``.
+- ``remove_model(model_name)`` : suppression d'un modèle via ``/api/delete``.
+- ``is_model_available(model_name)`` : vérification qu'un modèle est installé.
+- ``generate(prompt, model_name)`` : génération via ``/api/generate``.
+
+``OllamaSummarizationService`` utilise exclusivement ce provider. Il accepte un
+provider injecté via ``runtime_provider`` et, par défaut, en crée un avec sa
+configuration. ``is_available``, ``summarize`` et ``available_models`` délèguent
+les appels au provider et interprètent les ``RuntimeReport``.
 
 ### RuntimeReport
 

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import json
-from urllib.request import Request, urlopen
-
+from meetingai.runtime.providers.ollama_runtime_provider import (
+    OllamaRuntimeProvider,
+)
+from meetingai.runtime.runtime_status import RuntimeStatus
 from meetingai.services.summarization.summary_profile import SummaryProfile
 from meetingai.services.summarization.summary_result import SummaryResult
 from meetingai.services.summarization.summarization_service import (
@@ -26,31 +27,26 @@ class OllamaSummarizationService(SummarizationService):
         base_url: str = "http://localhost:11434",
         model: str = "llama3.2",
         timeout: int = 30,
+        runtime_provider: OllamaRuntimeProvider | None = None,
     ) -> None:
         """Initialise le service Ollama avec ses paramètres de connexion."""
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._timeout = timeout
+        self._provider = runtime_provider or OllamaRuntimeProvider(
+            host=base_url,
+            model=model,
+            timeout=timeout,
+        )
 
     def name(self) -> str:
         """Retourne le nom du provider."""
         return "ollama"
 
     def is_available(self) -> bool:
-        """Vérifie que le serveur Ollama répond.
-
-        Returns:
-            ``True`` si le serveur est joignable, ``False`` sinon.
-        """
-        try:
-            request = Request(
-                f"{self._base_url}/api/tags",
-                method="GET",
-            )
-            with urlopen(request, timeout=self._timeout):
-                return True
-        except Exception:
-            return False
+        """Vérifie que le serveur Ollama répond."""
+        status = self._provider.status()
+        return status in (RuntimeStatus.HEALTHY, RuntimeStatus.DEGRADED)
 
     def summarize(
         self,
@@ -70,35 +66,16 @@ class OllamaSummarizationService(SummarizationService):
             RuntimeError: Si la requête échoue ou si la réponse est invalide.
         """
         prompt = f"{profile.instruction}\n\n{text}"
-        payload = {
-            "model": self._model,
-            "prompt": prompt,
-            "stream": False,
-        }
-        request = Request(
-            f"{self._base_url}/api/generate",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
+        report = self._provider.generate(prompt, self._model)
 
-        try:
-            with urlopen(request, timeout=self._timeout) as response:
-                data = json.loads(response.read().decode("utf-8"))
-        except json.JSONDecodeError as exc:
-            raise RuntimeError(
-                "Réponse invalide reçue depuis Ollama."
-            ) from exc
-        except Exception as exc:
-            raise RuntimeError(
-                f"Échec de la communication avec Ollama : {exc}"
-            ) from exc
+        if report.status != RuntimeStatus.HEALTHY:
+            raise RuntimeError(f"Échec de la communication avec Ollama : {report.message}")
 
-        summary = data.get("response")
+        summary = report.details.get("response")
         if summary is None:
             raise RuntimeError("Réponse Ollama inattendue : champ 'response' manquant.")
 
-        return SummaryResult(text=summary.strip(), provider=self.name())
+        return SummaryResult(text=str(summary).strip(), provider=self.name())
 
     def available_models(self) -> list[str]:
         """Retourne la liste des modèles installés sur le serveur Ollama.
@@ -109,34 +86,15 @@ class OllamaSummarizationService(SummarizationService):
         Raises:
             RuntimeError: Si la requête échoue ou si la réponse est invalide.
         """
-        request = Request(
-            f"{self._base_url}/api/tags",
-            method="GET",
-        )
+        report = self._provider.list_installed_models()
 
-        try:
-            with urlopen(request, timeout=self._timeout) as response:
-                data = json.loads(response.read().decode("utf-8"))
-        except json.JSONDecodeError as exc:
+        if report.status != RuntimeStatus.HEALTHY:
             raise RuntimeError(
-                "Réponse invalide reçue depuis Ollama."
-            ) from exc
-        except Exception as exc:
-            raise RuntimeError(
-                f"Échec de la récupération des modèles Ollama : {exc}"
-            ) from exc
+                f"Échec de la récupération des modèles Ollama : {report.message}"
+            )
 
-        models = data.get("models", [])
+        models = report.details.get("models", [])
         if not isinstance(models, list):
             raise RuntimeError("Réponse Ollama inattendue pour /api/tags.")
 
-        names: list[str] = []
-        for model in models:
-            if isinstance(model, dict):
-                name = model.get("name")
-                if name:
-                    names.append(str(name))
-            elif isinstance(model, str):
-                names.append(model)
-
-        return sorted(names)
+        return sorted(str(name) for name in models if name)

@@ -319,7 +319,13 @@ class TestFFmpegRuntimeProvider(unittest.TestCase):
 
 
 class TestOllamaRuntimeProvider(unittest.TestCase):
-    """Tests du provider Ollama."""
+    """Tests du provider Ollama et de la gestion des modèles."""
+
+    def _urlopen_response(self, payload: dict) -> MagicMock:
+        """Construit un objet de réponse simulé pour urllib.request.urlopen."""
+        response = MagicMock()
+        response.read.return_value = json.dumps(payload).encode("utf-8")
+        return response
 
     def test_name_and_capabilities(self) -> None:
         """Le provider couvre la summarization."""
@@ -330,38 +336,357 @@ class TestOllamaRuntimeProvider(unittest.TestCase):
             [RuntimeCapability.SUMMARIZATION],
         )
 
-    @patch("meetingai.runtime.providers.ollama_runtime_provider.importlib.util.find_spec")
-    @patch("meetingai.runtime.providers.ollama_runtime_provider.urllib.request.urlopen")
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.importlib.util.find_spec"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.urllib.request.urlopen"
+    )
+    def test_is_ollama_present_detects_package(
+        self,
+        mock_urlopen: MagicMock,
+        mock_find_spec: MagicMock,
+        mock_which: MagicMock,
+    ) -> None:
+        """is_ollama_present détecte le package Python."""
+        mock_find_spec.return_value = MagicMock()
+        mock_which.return_value = None
+        provider = OllamaRuntimeProvider()
+
+        self.assertTrue(provider.is_ollama_present())
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.importlib.util.find_spec"
+    )
+    def test_is_ollama_present_detects_binary(
+        self,
+        mock_find_spec: MagicMock,
+        mock_which: MagicMock,
+    ) -> None:
+        """is_ollama_present détecte le binaire système."""
+        mock_find_spec.return_value = None
+        mock_which.return_value = "/usr/bin/ollama"
+        provider = OllamaRuntimeProvider()
+
+        self.assertTrue(provider.is_ollama_present())
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.urllib.request.urlopen"
+    )
+    def test_get_version_returns_version(
+        self,
+        mock_urlopen: MagicMock,
+        mock_which: MagicMock,
+    ) -> None:
+        """get_version retourne la version du serveur."""
+        mock_which.return_value = "/usr/bin/ollama"
+        mock_urlopen.return_value.__enter__.return_value = self._urlopen_response(
+            {"version": "0.5.0"}
+        )
+        provider = OllamaRuntimeProvider()
+
+        report = provider.get_version()
+
+        self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+        self.assertEqual(report.details.get("version"), "0.5.0")
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.urllib.request.urlopen"
+    )
+    def test_list_installed_models_returns_sorted_names(
+        self,
+        mock_urlopen: MagicMock,
+        mock_which: MagicMock,
+    ) -> None:
+        """list_installed_models retourne les modèles installés."""
+        mock_which.return_value = "/usr/bin/ollama"
+        mock_urlopen.return_value.__enter__.return_value = self._urlopen_response(
+            {
+                "models": [
+                    {"name": "mistral"},
+                    {"name": "llama3.2"},
+                ]
+            }
+        )
+        provider = OllamaRuntimeProvider()
+
+        report = provider.list_installed_models()
+
+        self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+        self.assertEqual(report.details.get("models"), ["llama3.2", "mistral"])
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.urllib.request.urlopen"
+    )
+    def test_is_model_available_true_when_installed(
+        self,
+        mock_urlopen: MagicMock,
+        mock_which: MagicMock,
+    ) -> None:
+        """is_model_available retourne HEALTHY si le modèle est installé."""
+        mock_which.return_value = "/usr/bin/ollama"
+        mock_urlopen.return_value.__enter__.return_value = self._urlopen_response(
+            {"models": [{"name": "llama3.2"}]}
+        )
+        provider = OllamaRuntimeProvider()
+
+        report = provider.is_model_available("llama3.2")
+
+        self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+        self.assertEqual(report.details.get("model"), "llama3.2")
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.urllib.request.urlopen"
+    )
+    def test_is_model_available_false_when_missing(
+        self,
+        mock_urlopen: MagicMock,
+        mock_which: MagicMock,
+    ) -> None:
+        """is_model_available retourne MISSING si le modèle n'est pas installé."""
+        mock_which.return_value = "/usr/bin/ollama"
+        mock_urlopen.return_value.__enter__.return_value = self._urlopen_response(
+            {"models": [{"name": "llama3"}]}
+        )
+        provider = OllamaRuntimeProvider()
+
+        report = provider.is_model_available("llama3.2")
+
+        self.assertEqual(report.status, RuntimeStatus.MISSING)
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.urllib.request.urlopen"
+    )
+    def test_install_model_pulls_model(
+        self,
+        mock_urlopen: MagicMock,
+        mock_which: MagicMock,
+    ) -> None:
+        """install_model appelle l'API pull."""
+        mock_which.return_value = "/usr/bin/ollama"
+        mock_urlopen.return_value.__enter__.return_value = self._urlopen_response(
+            {"status": "success"}
+        )
+        provider = OllamaRuntimeProvider()
+
+        report = provider.install_model("llama3.2")
+
+        self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+        called_request = mock_urlopen.call_args[0][0]
+        self.assertEqual(called_request.get_full_url().split("/")[-1], "pull")
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.urllib.request.urlopen"
+    )
+    def test_remove_model_deletes_model(
+        self,
+        mock_urlopen: MagicMock,
+        mock_which: MagicMock,
+    ) -> None:
+        """remove_model appelle l'API delete."""
+        mock_which.return_value = "/usr/bin/ollama"
+        mock_urlopen.return_value.__enter__.return_value = self._urlopen_response(
+            {"success": True}
+        )
+        provider = OllamaRuntimeProvider()
+
+        report = provider.remove_model("llama3.2")
+
+        self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+        called_request = mock_urlopen.call_args[0][0]
+        self.assertEqual(called_request.get_method(), "DELETE")
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.urllib.request.urlopen"
+    )
+    def test_generate_returns_response(
+        self,
+        mock_urlopen: MagicMock,
+        mock_which: MagicMock,
+    ) -> None:
+        """generate retourne la réponse Ollama."""
+        mock_which.return_value = "/usr/bin/ollama"
+        mock_urlopen.return_value.__enter__.return_value = self._urlopen_response(
+            {"response": "Résumé généré."}
+        )
+        provider = OllamaRuntimeProvider()
+
+        report = provider.generate("Texte à résumer.", "llama3.2")
+
+        self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+        self.assertEqual(report.details.get("response"), "Résumé généré.")
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.urllib.request.urlopen"
+    )
+    def test_status_healthy(
+        self,
+        mock_urlopen: MagicMock,
+        mock_which: MagicMock,
+    ) -> None:
+        """status retourne HEALTHY si le modèle configuré est installé."""
+        mock_which.return_value = "/usr/bin/ollama"
+        mock_urlopen.return_value.__enter__.return_value = self._urlopen_response(
+            {"models": [{"name": "llama3.2"}]}
+        )
+        provider = OllamaRuntimeProvider()
+
+        self.assertEqual(provider.status(), RuntimeStatus.HEALTHY)
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.urllib.request.urlopen"
+    )
+    def test_status_degraded_when_model_missing(
+        self,
+        mock_urlopen: MagicMock,
+        mock_which: MagicMock,
+    ) -> None:
+        """status retourne DEGRADED si le modèle par défaut est manquant."""
+        mock_which.return_value = "/usr/bin/ollama"
+        mock_urlopen.return_value.__enter__.return_value = self._urlopen_response(
+            {"models": [{"name": "llama3"}]}
+        )
+        provider = OllamaRuntimeProvider()
+
+        self.assertEqual(provider.status(), RuntimeStatus.DEGRADED)
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.urllib.request.urlopen"
+    )
+    def test_status_missing_when_server_unreachable(
+        self,
+        mock_urlopen: MagicMock,
+        mock_which: MagicMock,
+    ) -> None:
+        """status retourne MISSING si le serveur ne répond pas."""
+        import urllib.error
+
+        mock_which.return_value = None
+        mock_find_spec = None
+        mock_urlopen.side_effect = urllib.error.URLError("Connection refused")
+        provider = OllamaRuntimeProvider()
+
+        self.assertEqual(provider.status(), RuntimeStatus.MISSING)
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.urllib.request.urlopen"
+    )
+    def test_can_install_when_server_reachable(
+        self,
+        mock_urlopen: MagicMock,
+        mock_which: MagicMock,
+    ) -> None:
+        """can_install retourne True si le serveur est joignable."""
+        mock_which.return_value = "/usr/bin/ollama"
+        mock_urlopen.return_value.__enter__.return_value = self._urlopen_response(
+            {"models": []}
+        )
+        provider = OllamaRuntimeProvider()
+
+        self.assertTrue(provider.can_install())
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.urllib.request.urlopen"
+    )
+    def test_cannot_install_when_server_unreachable(
+        self,
+        mock_urlopen: MagicMock,
+        mock_which: MagicMock,
+    ) -> None:
+        """can_install retourne False si le serveur est inaccessible."""
+        import urllib.error
+
+        mock_which.return_value = "/usr/bin/ollama"
+        mock_urlopen.side_effect = urllib.error.URLError("Connection refused")
+        provider = OllamaRuntimeProvider()
+
+        self.assertFalse(provider.can_install())
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.importlib.util.find_spec"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.urllib.request.urlopen"
+    )
     def test_diagnose_server_available(
         self,
         mock_urlopen: MagicMock,
         mock_find_spec: MagicMock,
+        mock_which: MagicMock,
     ) -> None:
         """Le diagnostic retourne HEALTHY si le serveur répond."""
         mock_find_spec.return_value = MagicMock()
-        response = MagicMock()
-        response.read.return_value = json.dumps(
-            {"models": [{"name": "llama3"}]}
-        ).encode("utf-8")
-        mock_urlopen.return_value.__enter__.return_value = response
+        mock_which.return_value = None
+        mock_urlopen.return_value.__enter__.return_value = self._urlopen_response(
+            {"models": [{"name": "llama3.2"}]}
+        )
         provider = OllamaRuntimeProvider()
 
         report = provider.diagnose()
 
         self.assertEqual(report.status, RuntimeStatus.HEALTHY)
-        self.assertIn("llama3", report.details.get("models", []))
+        self.assertIn("llama3.2", report.details.get("installed_models", []))
 
-    @patch("meetingai.runtime.providers.ollama_runtime_provider.importlib.util.find_spec")
-    @patch("meetingai.runtime.providers.ollama_runtime_provider.urllib.request.urlopen")
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.urllib.request.urlopen"
+    )
     def test_diagnose_server_unreachable(
         self,
         mock_urlopen: MagicMock,
-        mock_find_spec: MagicMock,
+        mock_which: MagicMock,
     ) -> None:
         """Le diagnostic retourne MISSING si le serveur n'est pas accessible."""
         import urllib.error
 
-        mock_find_spec.return_value = None
+        mock_which.return_value = None
         mock_urlopen.side_effect = urllib.error.URLError("Connection refused")
         provider = OllamaRuntimeProvider()
 
@@ -370,7 +695,6 @@ class TestOllamaRuntimeProvider(unittest.TestCase):
 
         self.assertEqual(report.status, RuntimeStatus.MISSING)
         self.assertIn("host", report.details)
-
 
 class TestCudaRuntimeProvider(unittest.TestCase):
     """Tests du provider CUDA."""
