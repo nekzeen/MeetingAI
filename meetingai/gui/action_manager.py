@@ -53,6 +53,7 @@ class ActionManager:
         self.summarize_action = QAction("Résumer la transcription", self._parent)
         self.pipeline_action = QAction("Traitement automatique", self._parent)
         self.preferences_action = QAction("Préférences", self._parent)
+        self.runtime_action = QAction("État du système", self._parent)
         self.about_action = QAction("À propos", self._parent)
 
     @property
@@ -73,6 +74,7 @@ class ActionManager:
             "summarize": self.summarize_action,
             "pipeline": self.pipeline_action,
             "preferences": self.preferences_action,
+            "runtime": self.runtime_action,
             "about": self.about_action,
         }
 

@@ -7,6 +7,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 
 from meetingai.config.config_manager import ConfigManager
+from meetingai.controllers.runtime_controller import RuntimeController
 from meetingai.controllers.transcription_controller import (
     TranscriptionController,
 )
@@ -129,6 +130,21 @@ class TestApplicationContext(unittest.TestCase):
         self.assertIs(
             context.service_registry.get("transcription_controller"),
             context.transcription_controller,
+        )
+
+    def test_creates_runtime_controller(self) -> None:
+        """Le contexte crée un RuntimeController."""
+        context = ApplicationContext(config_path=self._config_path)
+
+        self.assertIsInstance(context.runtime_controller, RuntimeController)
+
+    def test_registers_runtime_controller_in_service_registry(self) -> None:
+        """RuntimeController est enregistré dans ServiceRegistry."""
+        context = ApplicationContext(config_path=self._config_path)
+
+        self.assertIs(
+            context.service_registry.get("runtime_controller"),
+            context.runtime_controller,
         )
 
 

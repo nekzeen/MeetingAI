@@ -207,3 +207,45 @@ Aucune modification de `RuntimeManager` n'est nécessaire.
 4. Avant une opération nécessitant une capacité, `ensure(capability)` permet
    de vérifier et de tenter de réparer automatiquement la dépendance.
 5. Les résultats sont présentés à l'utilisateur via les rapports.
+
+## Intégration graphique
+
+L'état du Runtime est exposé dans l'interface via la fenêtre **État du
+système**.
+
+### RuntimeController
+
+`meetingai/controllers/runtime_controller.py` centralise l'accès au Runtime
+pour l'interface. Il est instancié dans `ApplicationContext` et enregistré dans
+`ServiceRegistry`. Il délègue toute la logique métier à `RuntimeManager`,
+`RuntimeAssistant` et `RuntimeGuard` :
+
+- `status()` : état global agrégé.
+- `reports()` : rapports de diagnostic détaillés.
+- `actions()` : actions recommandées.
+- `refresh()` : rafraîchit les trois informations précédentes.
+- `check_transcription()`, `check_summary()`, `check_pipeline()` : vérification
+des prérequis pour chaque opération.
+
+### RuntimeWindow
+
+`meetingai/gui/runtime_window.py` affiche trois zones :
+
+1. **État global** : statut agrégé du Runtime.
+2. **Diagnostics** : tableau des rapports de chaque provider (nom, état,
+   message).
+3. **Actions recommandées** : liste des actions proposées avec un emplacement
+   bouton préparé pour les futures opérations d'installation, de réparation ou
+   de téléchargement.
+
+La fenêtre s'ouvre depuis le menu **Outils > État du système**. Les boutons
+ sont activés selon la disponibilité de l'action (`available`) mais ne
+réalisent pas encore l'opération complète.
+
+### ActionManager et MainWindow
+
+- `ActionManager` crée l'action `runtime_action` avec le libellé
+  **État du système**.
+- `MainWindow` l'insère dans le menu **Outils** et la connecte à
+  `_open_runtime_window()`, qui instancie et affiche `RuntimeWindow`.
+- `ApplicationContext` fournit l'instance unique de `RuntimeController`.

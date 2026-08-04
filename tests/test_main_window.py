@@ -95,6 +95,7 @@ class TestMainWindow(unittest.TestCase):
         texts = [action.text() for action in tools_menu.actions()]
         self.assertIn("Transcrire", texts)
         self.assertIn("Résumer la transcription", texts)
+        self.assertIn("État du système", texts)
         self.assertIn("Préférences", texts)
 
     def test_help_menu_contains_about(self) -> None:

@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 from meetingai.controllers.settings_controller import SettingsController
 from meetingai.core.application_context import ApplicationContext
 from meetingai.gui.action_manager import ActionManager
+from meetingai.gui.runtime_window import RuntimeWindow
 from meetingai.gui.settings_window import SettingsWindow
 from meetingai.gui.workspace import Workspace
 from meetingai.services.speech_to_text.transcription_result import (
@@ -85,6 +86,10 @@ class MainWindow(QMainWindow):
             self._action_manager.preferences_action.triggered.connect(
                 self._open_settings
             )
+            if self._context.runtime_controller is not None:
+                self._action_manager.runtime_action.triggered.connect(
+                    self._open_runtime_window
+                )
             if self._context.export_controller is not None:
                 self._action_manager.export_txt_action.triggered.connect(
                     self._context.export_controller.export_txt
@@ -147,6 +152,16 @@ class MainWindow(QMainWindow):
             message,
         )
 
+    def _open_runtime_window(self) -> None:
+        """Ouvre la fenêtre d'état du système."""
+        if self._context is None:
+            return
+        dialog = RuntimeWindow(
+            runtime_controller=self._context.runtime_controller,
+            parent=self,
+        )
+        dialog.exec()
+
     def _open_settings(self) -> None:
         """Ouvre la fenêtre de paramètres et persiste les modifications."""
         if self._context is None:
@@ -187,6 +202,8 @@ class MainWindow(QMainWindow):
         tools_menu.addAction(actions["transcribe"])
         tools_menu.addAction(actions["summarize"])
         tools_menu.addAction(actions["pipeline"])
+        tools_menu.addSeparator()
+        tools_menu.addAction(actions["runtime"])
         tools_menu.addSeparator()
         tools_menu.addAction(actions["preferences"])
 

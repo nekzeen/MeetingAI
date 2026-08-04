@@ -252,7 +252,12 @@ class FasterWhisperService(SpeechToTextService):
         """
         if _FASTER_WHISPER is None:
             raise RuntimeError(
-                "La bibliothèque faster-whisper n'est pas installée."
+                "La bibliothèque faster-whisper n'est pas installée. "
+                f"Impossible de rendre le modèle '{self._model_size}' disponible. "
+                f"Vérifiez votre connexion réseau et l'accès au répertoire "
+                f"{self._models_directory}, ou installez le modèle "
+                f"explicitement avec WhisperRuntimeProvider.install_model("
+                f"'{self._model_size}', '{self._models_directory}')."
             )
 
         try:

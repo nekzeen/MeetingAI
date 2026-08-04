@@ -90,6 +90,12 @@ class TestActionManager(unittest.TestCase):
             manager.export_markdown_action.text(), "Exporter en Markdown"
         )
 
+    def test_runtime_action_exists(self) -> None:
+        """L'action 'État du système' est créée."""
+        manager = ActionManager()
+        self.assertIsInstance(manager.runtime_action, QAction)
+        self.assertEqual(manager.runtime_action.text(), "État du système")
+
     def test_actions_dictionary(self) -> None:
         """Le dictionnaire expose toutes les actions attendues."""
         manager = ActionManager()
@@ -105,6 +111,7 @@ class TestActionManager(unittest.TestCase):
             "summarize",
             "pipeline",
             "preferences",
+            "runtime",
             "about",
         }
         self.assertEqual(set(actions.keys()), expected_keys)
