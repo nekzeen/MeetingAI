@@ -220,6 +220,58 @@ class TestRuntimeWindow(unittest.TestCase):
         self.assertTrue(thread.wait(2000))
         self.controller.install.assert_called_once_with("whisper")
 
+    def test_ollama_group_exists(self) -> None:
+        """La section Ollama est présente."""
+        group = self.window.findChild(QGroupBox, "ollama_group")
+        self.assertIsNotNone(group)
+
+    def test_ollama_section_is_populated(self) -> None:
+        """La section Ollama affiche les informations du rapport."""
+        report = RuntimeReport(
+            provider_name="ollama",
+            status=RuntimeStatus.DEGRADED,
+            message="Modèle manquant.",
+            details={
+                "host": "http://localhost:11434",
+                "version": "0.5.0",
+                "model": "llama3.2",
+                "installed_models": ["llama3"],
+            },
+        )
+        self.controller.report_for = MagicMock(
+            side_effect=lambda name: report if name == "ollama" else None
+        )
+        self.window._refresh()
+
+        self.assertIn(
+            "0.5.0",
+            self.window.findChild(QLabel, "ollama_version_label").text(),
+        )
+        self.assertIn(
+            "llama3.2",
+            self.window.findChild(QLabel, "ollama_model_label").text(),
+        )
+        self.assertIn(
+            "llama3",
+            self.window.findChild(QLabel, "ollama_models_label").text(),
+        )
+
+    def test_run_start_server_uses_controller(self) -> None:
+        """Le démarrage de serveur délègue au contrôleur dans un thread."""
+        self.controller.start_server.return_value = RuntimeReport(
+            provider_name="ollama",
+            status=RuntimeStatus.HEALTHY,
+            message="ok",
+            details={},
+        )
+
+        self.window._run_start_server("ollama")
+
+        thread = self.window._start_server_thread
+        self.assertIsNotNone(thread)
+        self.assertTrue(thread.wait(2000))
+        self.controller.start_server.assert_called_once_with("ollama")
+
 
 if __name__ == "__main__":
     unittest.main()

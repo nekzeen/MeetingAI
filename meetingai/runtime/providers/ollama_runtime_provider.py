@@ -6,6 +6,8 @@ import importlib.util
 import json
 import logging
 import shutil
+import subprocess
+import time
 import urllib.error
 import urllib.request
 from typing import Any
@@ -416,7 +418,7 @@ class OllamaRuntimeProvider(RuntimeProvider):
                     provider_name=self.name,
                     message="Démarrer le serveur Ollama.",
                     description=f"Le serveur Ollama sur {self._host} ne répond pas.",
-                    available=False,
+                    available=self.can_start_server(),
                     requires_user=True,
                     parameters={"host": self._host},
                 )
@@ -443,6 +445,65 @@ class OllamaRuntimeProvider(RuntimeProvider):
     def can_install(self) -> bool:
         """L'installation d'un modèle est possible si le serveur est joignable."""
         return self.is_ollama_present() and self.is_server_reachable()
+
+    def can_start_server(self) -> bool:
+        """Le serveur peut être démarré si Ollama est installé mais non joignable."""
+        return self.is_ollama_present() and not self.is_server_reachable()
+
+    def start_server(self) -> RuntimeReport:
+        """Démarre le serveur Ollama en arrière-plan."""
+        if not self.is_ollama_present():
+            return RuntimeReport(
+                provider_name=self.name,
+                status=RuntimeStatus.MISSING,
+                capabilities=self.capabilities,
+                message="Ollama n'est pas installé.",
+                details={"host": self._host},
+            )
+
+        if self.is_server_reachable():
+            return RuntimeReport(
+                provider_name=self.name,
+                status=RuntimeStatus.HEALTHY,
+                capabilities=self.capabilities,
+                message="Le serveur Ollama est déjà actif.",
+                details={"host": self._host},
+            )
+
+        try:
+            subprocess.Popen(
+                ["ollama", "serve"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                close_fds=True,
+            )
+        except Exception as exc:
+            return RuntimeReport(
+                provider_name=self.name,
+                status=RuntimeStatus.ERROR,
+                capabilities=self.capabilities,
+                message=f"Échec du démarrage du serveur Ollama : {exc}.",
+                details={"host": self._host, "error": str(exc)},
+            )
+
+        for _ in range(30):
+            time.sleep(0.5)
+            if self.is_server_reachable():
+                return RuntimeReport(
+                    provider_name=self.name,
+                    status=RuntimeStatus.HEALTHY,
+                    capabilities=self.capabilities,
+                    message="Serveur Ollama démarré avec succès.",
+                    details={"host": self._host},
+                )
+
+        return RuntimeReport(
+            provider_name=self.name,
+            status=RuntimeStatus.ERROR,
+            capabilities=self.capabilities,
+            message="Le serveur Ollama n'a pas répondu dans le délai imparti.",
+            details={"host": self._host},
+        )
 
     def install(self) -> RuntimeReport:
         """Installe le modèle configuré."""

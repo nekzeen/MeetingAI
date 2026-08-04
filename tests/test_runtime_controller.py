@@ -261,6 +261,43 @@ class TestRuntimeController(unittest.TestCase):
         self.assertEqual(report.status, RuntimeStatus.ERROR)
         self.assertIn("introuvable", report.message)
 
+    def test_start_server_calls_provider_start_server(self) -> None:
+        """start_server délègue au provider portant le nom donné."""
+        provider = MagicMock()
+        provider.name = "ollama"
+        provider.start_server.return_value = RuntimeReport(
+            provider_name="ollama",
+            status=RuntimeStatus.HEALTHY,
+            message="started",
+        )
+        controller = self._controller([provider])
+
+        report = controller.start_server("ollama")
+
+        provider.start_server.assert_called_once()
+        self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+
+    def test_start_server_returns_error_when_unsupported(self) -> None:
+        """start_server retourne une erreur si le provider ne supporte pas cette opération."""
+        provider = MagicMock()
+        provider.name = "whisper"
+        provider.start_server = None
+        controller = self._controller([provider])
+
+        report = controller.start_server("whisper")
+
+        self.assertEqual(report.status, RuntimeStatus.ERROR)
+        self.assertIn("ne supporte pas", report.message)
+
+    def test_start_server_returns_error_for_unknown_provider(self) -> None:
+        """start_server retourne une erreur si le provider est inconnu."""
+        controller = self._controller([])
+
+        report = controller.start_server("ollama")
+
+        self.assertEqual(report.status, RuntimeStatus.ERROR)
+        self.assertIn("introuvable", report.message)
+
 
 if __name__ == "__main__":
     unittest.main()

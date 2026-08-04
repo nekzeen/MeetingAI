@@ -99,6 +99,34 @@ class RuntimeController:
             message=f"Provider '{provider_name}' introuvable.",
         )
 
+    def start_server(self, provider_name: str) -> RuntimeReport:
+        """Lance le serveur d'un provider donné par son nom.
+
+        Args:
+            provider_name: Nom unique du provider dont le serveur doit être
+                démarré.
+
+        Returns:
+            Rapport décrivant le résultat de l'opération.
+        """
+        for provider in self._manager.providers:
+            if provider.name == provider_name:
+                if not callable(getattr(provider, "start_server", None)):
+                    return RuntimeReport(
+                        provider_name=provider_name,
+                        status=RuntimeStatus.ERROR,
+                        message=(
+                            f"Le provider '{provider_name}' ne supporte pas "
+                            "le démarrage d'un serveur."
+                        ),
+                    )
+                return provider.start_server()
+        return RuntimeReport(
+            provider_name=provider_name,
+            status=RuntimeStatus.ERROR,
+            message=f"Provider '{provider_name}' introuvable.",
+        )
+
     def check_transcription(self) -> RuntimeGuardResult:
         """Vérifie les prérequis pour une transcription."""
         return self._guard.check_transcription()

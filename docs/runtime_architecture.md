@@ -229,6 +229,8 @@ pour l'interface. Il est instancié dans `ApplicationContext` et enregistré dan
 - `actions()` : actions recommandées.
 - `refresh()` : rafraîchit les trois informations précédentes.
 - `install(provider_name)` : déclenche l'installation d'un provider.
+- `start_server(provider_name)` : déclenche le démarrage du serveur d'un
+  provider (Ollama).
 - `check_transcription()`, `check_summary()`, `check_pipeline()` : vérification
 des prérequis pour chaque opération.
 
@@ -242,18 +244,24 @@ des prérequis pour chaque opération.
 3. **Whisper** : section dédiée au provider Whisper affichant le modèle
    sélectionné, l'état du modèle, son emplacement et les informations retournées
    par `WhisperRuntimeProvider`.
-4. **Actions recommandées** : liste des actions proposées avec un emplacement
-   bouton préparé pour les futures opérations d'installation, de réparation ou
-   de téléchargement.
+4. **Ollama** : section dédiée au provider Ollama affichant l'état du serveur,
+   la version, les modèles installés, le modèle configuré et les informations
+   retournées par `OllamaRuntimeProvider`.
+5. **Actions recommandées** : liste des actions proposées avec un emplacement
+   bouton activé lorsque l'action est `available`.
 
 La section Whisper intègre un bouton **Installer** qui déclenche
-`RuntimeController.install('whisper')` dans un thread secondaire. Une barre de
-progression indéterminée est affichée pendant le téléchargement. À la fin,
-`RuntimeWindow` affiche le résultat et rafraîchit automatiquement le diagnostic.
+`RuntimeController.install('whisper')` dans un thread secondaire. La section
+Ollama affiche une barre de progression pour l'installation du modèle et le
+démarrage du serveur via `RuntimeController.install('ollama')` et
+`RuntimeController.start_server('ollama')`. Les opérations longues tournent
+dans un `QThread` et `RuntimeWindow` rafraîchit automatiquement le diagnostic
+à la fin.
 
 La fenêtre s'ouvre depuis le menu **Outils > État du système**. Les boutons
 sont activés selon la disponibilité de l'action (`available`). L'installation
-Whisper est opérationnelle ; les autres actions restent des emplacements.
+Whisper, le téléchargement d'un modèle Ollama et le démarrage du serveur
+Ollama sont opérationnels.
 
 ### ActionManager et MainWindow
 

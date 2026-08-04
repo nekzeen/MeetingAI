@@ -718,6 +718,137 @@ class TestOllamaRuntimeProvider(unittest.TestCase):
         self.assertEqual(report.status, RuntimeStatus.MISSING)
         self.assertIn("host", report.details)
 
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.importlib.util.find_spec"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.subprocess.Popen"
+    )
+    def test_start_server_not_installed(
+        self,
+        mock_popen: MagicMock,
+        mock_find_spec: MagicMock,
+        mock_which: MagicMock,
+    ) -> None:
+        """start_server retourne MISSING si Ollama n'est pas installé."""
+        mock_find_spec.return_value = None
+        mock_which.return_value = None
+        provider = OllamaRuntimeProvider()
+
+        report = provider.start_server()
+
+        self.assertEqual(report.status, RuntimeStatus.MISSING)
+        mock_popen.assert_not_called()
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.time.sleep"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.subprocess.Popen"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.importlib.util.find_spec"
+    )
+    def test_start_server_success(
+        self,
+        mock_find_spec: MagicMock,
+        mock_which: MagicMock,
+        mock_popen: MagicMock,
+        mock_sleep: MagicMock,
+    ) -> None:
+        """start_server démarre le binaire et retourne HEALTHY quand le serveur répond."""
+        mock_find_spec.return_value = None
+        mock_which.return_value = "/usr/bin/ollama"
+        provider = OllamaRuntimeProvider()
+
+        with patch.object(
+            provider, "is_server_reachable", side_effect=[False, True]
+        ):
+            report = provider.start_server()
+
+        self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+        self.assertIn("démarré", report.message)
+        mock_popen.assert_called_once()
+        mock_sleep.assert_called_once_with(0.5)
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.time.sleep"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.subprocess.Popen"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.importlib.util.find_spec"
+    )
+    def test_start_server_timeout(
+        self,
+        mock_find_spec: MagicMock,
+        mock_which: MagicMock,
+        mock_popen: MagicMock,
+        mock_sleep: MagicMock,
+    ) -> None:
+        """start_server retourne ERROR si le serveur ne répond pas dans le délai."""
+        mock_find_spec.return_value = None
+        mock_which.return_value = "/usr/bin/ollama"
+        provider = OllamaRuntimeProvider()
+
+        with patch.object(
+            provider, "is_server_reachable", side_effect=[False] * 31
+        ):
+            report = provider.start_server()
+
+        self.assertEqual(report.status, RuntimeStatus.ERROR)
+        self.assertIn("délai", report.message)
+        self.assertEqual(mock_popen.call_count, 1)
+        self.assertEqual(mock_sleep.call_count, 30)
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.importlib.util.find_spec"
+    )
+    def test_can_start_server(
+        self,
+        mock_find_spec: MagicMock,
+        mock_which: MagicMock,
+    ) -> None:
+        """can_start_server retourne True si Ollama est installé mais le serveur est arrêté."""
+        mock_find_spec.return_value = None
+        mock_which.return_value = "/usr/bin/ollama"
+        provider = OllamaRuntimeProvider()
+
+        with patch.object(provider, "is_server_reachable", return_value=False):
+            self.assertTrue(provider.can_start_server())
+
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.shutil.which"
+    )
+    @patch(
+        "meetingai.runtime.providers.ollama_runtime_provider.importlib.util.find_spec"
+    )
+    def test_cannot_start_server_when_ollama_missing(
+        self,
+        mock_find_spec: MagicMock,
+        mock_which: MagicMock,
+    ) -> None:
+        """can_start_server retourne False si Ollama n'est pas installé."""
+        mock_find_spec.return_value = None
+        mock_which.return_value = None
+        provider = OllamaRuntimeProvider()
+
+        self.assertFalse(provider.can_start_server())
+
+
 class TestCudaRuntimeProvider(unittest.TestCase):
     """Tests du provider CUDA."""
 
