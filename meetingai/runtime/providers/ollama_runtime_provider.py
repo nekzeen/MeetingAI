@@ -10,6 +10,7 @@ import subprocess
 import time
 import urllib.error
 import urllib.request
+from enum import Enum
 from typing import Any
 
 from meetingai.runtime.runtime_action import RuntimeAction, RuntimeActionType
@@ -17,6 +18,16 @@ from meetingai.runtime.runtime_capability import RuntimeCapability
 from meetingai.runtime.runtime_provider import RuntimeProvider
 from meetingai.runtime.runtime_report import RuntimeReport
 from meetingai.runtime.runtime_status import RuntimeStatus
+
+
+class OllamaState(Enum):
+    """États progressifs du workflow Ollama."""
+
+    NOT_INSTALLED = "not_installed"
+    INSTALLED = "installed"
+    SERVER_STOPPED = "server_stopped"
+    SERVER_STARTED = "server_started"
+    MODEL_AVAILABLE = "model_available"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,6 +54,47 @@ class OllamaRuntimeProvider(RuntimeProvider):
         self._host = (host or self._DEFAULT_HOST).rstrip("/")
         self._model = model or self._DEFAULT_MODEL
         self._timeout = timeout or self._DEFAULT_TIMEOUT
+
+    def state(self) -> OllamaState:
+        """Retourne l'état progressif du workflow Ollama."""
+        if not self.is_ollama_present():
+            return OllamaState.NOT_INSTALLED
+
+        if not self.is_server_reachable():
+            return OllamaState.INSTALLED
+
+        try:
+            tags = self._fetch_tags()
+        except (urllib.error.URLError, Exception):
+            return OllamaState.SERVER_STARTED
+
+        if self._model in tags:
+            return OllamaState.MODEL_AVAILABLE
+
+        return OllamaState.SERVER_STARTED
+
+    def _report_for_state(
+        self,
+        action: str,
+        current: OllamaState,
+    ) -> RuntimeReport:
+        """Retourne un rapport bloquant pour une opération impossible."""
+        messages = {
+            OllamaState.NOT_INSTALLED: "Ollama n'est pas installé.",
+            OllamaState.INSTALLED: "Le serveur Ollama n'est pas démarré.",
+            OllamaState.SERVER_STARTED: "Le serveur Ollama est démarré mais le modèle n'est pas installé.",
+        }
+        return RuntimeReport(
+            provider_name=self.name,
+            status=RuntimeStatus.MISSING,
+            capabilities=self.capabilities,
+            message=f"{action} impossible : {messages.get(current, 'État non valide.')}",
+            details={
+                "host": self._host,
+                "model": self._model,
+                "current_state": current.value,
+            },
+        )
 
     @property
     def name(self) -> str:
@@ -137,6 +189,13 @@ class OllamaRuntimeProvider(RuntimeProvider):
                 details={"host": self._host, "error": str(exc)},
             )
 
+    def _is_model_installed(self, model_name: str) -> bool:
+        """Vérifie qu'un modèle est présent dans la liste installée."""
+        try:
+            return model_name in self._fetch_tags()
+        except (urllib.error.URLError, Exception):
+            return False
+
     def _fetch_tags(self) -> list[str]:
         """Récupère la liste des modèles disponibles auprès du serveur Ollama.
 
@@ -207,6 +266,11 @@ class OllamaRuntimeProvider(RuntimeProvider):
     def install_model(self, model_name: str | None = None) -> RuntimeReport:
         """Télécharge un modèle auprès du serveur Ollama."""
         model = model_name or self._model
+
+        current_state = self.state()
+        if current_state not in (OllamaState.SERVER_STARTED, OllamaState.MODEL_AVAILABLE):
+            return self._report_for_state("Téléchargement", current_state)
+
         try:
             self._request(
                 "POST",
@@ -240,6 +304,20 @@ class OllamaRuntimeProvider(RuntimeProvider):
     def remove_model(self, model_name: str | None = None) -> RuntimeReport:
         """Supprime un modèle du serveur Ollama."""
         model = model_name or self._model
+
+        current_state = self.state()
+        if current_state != OllamaState.MODEL_AVAILABLE:
+            return self._report_for_state("Suppression", current_state)
+
+        if not self._is_model_installed(model):
+            return RuntimeReport(
+                provider_name=self.name,
+                status=RuntimeStatus.MISSING,
+                capabilities=self.capabilities,
+                message=f"Suppression impossible : le modèle '{model}' n'est pas installé.",
+                details={"host": self._host, "model": model},
+            )
+
         try:
             self._request(
                 "DELETE",
@@ -273,6 +351,20 @@ class OllamaRuntimeProvider(RuntimeProvider):
     def generate(self, prompt: str, model_name: str | None = None) -> RuntimeReport:
         """Génère un résumé via l'API Ollama."""
         model = model_name or self._model
+
+        current_state = self.state()
+        if current_state not in (OllamaState.SERVER_STARTED, OllamaState.MODEL_AVAILABLE):
+            return self._report_for_state("Génération", current_state)
+
+        if not self._is_model_installed(model):
+            return RuntimeReport(
+                provider_name=self.name,
+                status=RuntimeStatus.MISSING,
+                capabilities=self.capabilities,
+                message=f"Génération impossible : le modèle '{model}' n'est pas installé.",
+                details={"host": self._host, "model": model},
+            )
+
         try:
             data = self._request(
                 "POST",
@@ -344,6 +436,7 @@ class OllamaRuntimeProvider(RuntimeProvider):
                     "host": self._host,
                     "model": self._model,
                     "package_installed": False,
+                    "state": OllamaState.NOT_INSTALLED.value,
                     "version_report": version_report.details,
                     "installed_models": models_report.details.get("models", []),
                     "model_report": model_report.details,
@@ -360,6 +453,7 @@ class OllamaRuntimeProvider(RuntimeProvider):
                     "host": self._host,
                     "model": self._model,
                     "package_installed": package_available,
+                    "state": OllamaState.INSTALLED.value,
                     "version_report": version_report.details,
                     "installed_models": models_report.details.get("models", []),
                     "model_report": model_report.details,
@@ -387,6 +481,7 @@ class OllamaRuntimeProvider(RuntimeProvider):
                 "host": self._host,
                 "model": self._model,
                 "package_installed": package_available,
+                "state": self.state().value,
                 "version": version_report.details.get("version"),
                 "installed_models": models_report.details.get("models", []),
                 "model_report": model_report.details,

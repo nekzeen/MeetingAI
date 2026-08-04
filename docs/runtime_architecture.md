@@ -89,9 +89,23 @@ mode ``local_files_only=True`` depuis le chemin exact retourné dans le rapport.
 
 ## Gestion des modèles et du serveur Ollama
 
-``OllamaRuntimeProvider`` est le gestionnaire unique d'Ollama. Il détecte le
-package ou le binaire Ollama, interroge le serveur local et offre les opérations
-suivantes, chacune retournant un ``RuntimeReport`` :
+``OllamaRuntimeProvider`` est le gestionnaire unique d'Ollama. Il expose une
+machine à états ``OllamaState`` représentant les étapes d'activation du
+workflow Ollama :
+
+1. ``NOT_INSTALLED`` : Ollama n'est pas installé (package ou binaire manquant).
+2. ``INSTALLED`` : Ollama est installé mais le serveur ne répond pas.
+3. ``SERVER_STARTED`` : le serveur est joignable mais le modèle configuré n'est
+   pas installé.
+4. ``MODEL_AVAILABLE`` : le serveur est joignable et le modèle configuré est
+   installé.
+
+Cette machine à états est utilisée pour vérifier les prérequis avant chaque
+opération (``install_model``, ``remove_model``, ``generate``) et retourner un
+``RuntimeReport`` clair lorsqu'une action est impossible. Aucun appel HTTP n'est
+jamais effectué si les prérequis ne sont pas satisfaits.
+
+Les opérations offertes, chacune retournant un ``RuntimeReport``, sont :
 
 - ``is_ollama_present()`` : détection du package Python ou du binaire.
 - ``is_server_reachable()`` : vérification que le serveur répond.
@@ -101,6 +115,7 @@ suivantes, chacune retournant un ``RuntimeReport`` :
 - ``remove_model(model_name)`` : suppression d'un modèle via ``/api/delete``.
 - ``is_model_available(model_name)`` : vérification qu'un modèle est installé.
 - ``generate(prompt, model_name)`` : génération via ``/api/generate``.
+- ``state()`` : retourne l'état progressif du workflow Ollama.
 
 ``OllamaSummarizationService`` utilise exclusivement ce provider. Il accepte un
 provider injecté via ``runtime_provider`` et, par défaut, en crée un avec sa
@@ -134,6 +149,8 @@ automatiquement ou nécessite une intervention humaine).
 - `first_run_guide()` : filtre les actions utiles lors du premier lancement.
 - `actions_for(provider_name)` : retourne les actions d'un provider donné.
 - `top_action()` : retourne l'action prioritaire.
+- `first_run_guide()` : retourne uniquement l'action prioritaire à traiter en
+  premier.
 - `is_ready()` : indique si tout l'environnement est sain.
 
 Chaque `RuntimeProvider` expose `suggested_actions(report)` pour traduire un

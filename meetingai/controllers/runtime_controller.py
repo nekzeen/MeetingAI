@@ -56,8 +56,8 @@ class RuntimeController:
         return self._manager.report()
 
     def actions(self) -> list[RuntimeAction]:
-        """Retourne les actions recommandées pour l'environnement actuel."""
-        return self._assistant.analyze()
+        """Retourne l'action prioritaire pour l'environnement actuel."""
+        return self._assistant.first_run_guide()
 
     def is_ready(self) -> bool:
         """Indique si l'environnement est pleinement opérationnel."""

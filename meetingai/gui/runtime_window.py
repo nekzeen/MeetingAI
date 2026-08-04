@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 )
 
 from meetingai.controllers.runtime_controller import RuntimeController
+from meetingai.runtime.providers.ollama_runtime_provider import OllamaState
 from meetingai.runtime.runtime_action import RuntimeAction, RuntimeActionType
 from meetingai.runtime.runtime_report import RuntimeReport
 from meetingai.runtime.runtime_status import RuntimeStatus
@@ -757,6 +758,17 @@ class RuntimeWindow(QDialog):
             self._ollama_models_list.addItem(item)
             if str(model) == str(configured):
                 item.setSelected(True)
+
+        state = details.get("state", OllamaState.NOT_INSTALLED.value)
+        server_ready = state in (
+            OllamaState.SERVER_STARTED.value,
+            OllamaState.MODEL_AVAILABLE.value,
+        )
+        self._ollama_download_button.setEnabled(server_ready)
+        self._ollama_remove_button.setEnabled(server_ready)
+        self._ollama_select_button.setEnabled(
+            state != OllamaState.NOT_INSTALLED.value
+        )
 
     def _update_whisper_section(self) -> None:
         """Met à jour la section Whisper avec le diagnostic du provider."""

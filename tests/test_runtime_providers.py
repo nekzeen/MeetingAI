@@ -16,6 +16,7 @@ from meetingai.runtime.providers import (
     PythonRuntimeProvider,
     WhisperRuntimeProvider,
 )
+from meetingai.runtime.providers.ollama_runtime_provider import OllamaState
 from meetingai.runtime.runtime_capability import RuntimeCapability
 from meetingai.runtime.runtime_status import RuntimeStatus
 
@@ -531,9 +532,19 @@ class TestOllamaRuntimeProvider(unittest.TestCase):
     ) -> None:
         """remove_model appelle l'API delete."""
         mock_which.return_value = "/usr/bin/ollama"
-        mock_urlopen.return_value.__enter__.return_value = self._urlopen_response(
-            {"success": True}
-        )
+
+        def _context(payload: dict) -> MagicMock:
+            resp = self._urlopen_response(payload)
+            resp.__enter__.return_value = resp
+            resp.__exit__.return_value = False
+            return resp
+
+        def _respond(request, *_args, **_kwargs):
+            if request.get_method() == "GET":
+                return _context({"models": [{"name": "llama3.2"}]})
+            return _context({"success": True})
+
+        mock_urlopen.side_effect = _respond
         provider = OllamaRuntimeProvider()
 
         report = provider.remove_model("llama3.2")
@@ -555,9 +566,19 @@ class TestOllamaRuntimeProvider(unittest.TestCase):
     ) -> None:
         """generate retourne la réponse Ollama."""
         mock_which.return_value = "/usr/bin/ollama"
-        mock_urlopen.return_value.__enter__.return_value = self._urlopen_response(
-            {"response": "Résumé généré."}
-        )
+
+        def _context(payload: dict) -> MagicMock:
+            resp = self._urlopen_response(payload)
+            resp.__enter__.return_value = resp
+            resp.__exit__.return_value = False
+            return resp
+
+        def _respond(request, *_args, **_kwargs):
+            if request.get_method() == "GET":
+                return _context({"models": [{"name": "llama3.2"}]})
+            return _context({"response": "Résumé généré."})
+
+        mock_urlopen.side_effect = _respond
         provider = OllamaRuntimeProvider()
 
         report = provider.generate("Texte à résumer.", "llama3.2")
@@ -857,6 +878,49 @@ class TestOllamaRuntimeProvider(unittest.TestCase):
         self.assertEqual(provider.model, "mistral")
         self.assertEqual(report.status, RuntimeStatus.HEALTHY)
         self.assertIn("mistral", report.message)
+
+
+    def test_state_machine_transitions(self) -> None:
+        """La machine à états reflète correctement les transitions Ollama."""
+        with patch.object(OllamaRuntimeProvider, "is_ollama_present", return_value=False):
+            provider = OllamaRuntimeProvider()
+            self.assertEqual(provider.state(), OllamaState.NOT_INSTALLED)
+
+        with patch.object(OllamaRuntimeProvider, "is_ollama_present", return_value=True), \
+             patch.object(OllamaRuntimeProvider, "is_server_reachable", return_value=False):
+            provider = OllamaRuntimeProvider()
+            self.assertEqual(provider.state(), OllamaState.INSTALLED)
+
+        with patch.object(OllamaRuntimeProvider, "is_ollama_present", return_value=True), \
+             patch.object(OllamaRuntimeProvider, "is_server_reachable", return_value=True), \
+             patch.object(OllamaRuntimeProvider, "_fetch_tags", return_value=[]):
+            provider = OllamaRuntimeProvider()
+            self.assertEqual(provider.state(), OllamaState.SERVER_STARTED)
+
+        with patch.object(OllamaRuntimeProvider, "is_ollama_present", return_value=True), \
+             patch.object(OllamaRuntimeProvider, "is_server_reachable", return_value=True), \
+             patch.object(OllamaRuntimeProvider, "_fetch_tags", return_value=["llama3.2"]):
+            provider = OllamaRuntimeProvider(model="llama3.2")
+            self.assertEqual(provider.state(), OllamaState.MODEL_AVAILABLE)
+
+    @patch.object(OllamaRuntimeProvider, "is_ollama_present", return_value=False)
+    def test_generate_blocked_when_not_installed(self, _mock: MagicMock) -> None:
+        """generate ne fait jamais d'appel HTTP si Ollama n'est pas installé."""
+        provider = OllamaRuntimeProvider()
+        report = provider.generate("prompt", "llama3.2")
+        self.assertEqual(report.status, RuntimeStatus.MISSING)
+
+    @patch.object(OllamaRuntimeProvider, "is_ollama_present", return_value=True)
+    @patch.object(OllamaRuntimeProvider, "is_server_reachable", return_value=False)
+    def test_remove_model_blocked_when_server_down(
+        self,
+        _mock_server: MagicMock,
+        _mock_present: MagicMock,
+    ) -> None:
+        """remove_model ne fait jamais d'appel HTTP si le serveur est arrêté."""
+        provider = OllamaRuntimeProvider()
+        report = provider.remove_model("llama3.2")
+        self.assertEqual(report.status, RuntimeStatus.MISSING)
 
 
 class TestCudaRuntimeProvider(unittest.TestCase):

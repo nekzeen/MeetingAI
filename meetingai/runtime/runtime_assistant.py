@@ -53,28 +53,18 @@ class RuntimeAssistant:
         return actions
 
     def first_run_guide(self) -> list[RuntimeAction]:
-        """Retourne les actions prioritaires pour le premier lancement.
+        """Retourne l'action prioritaire pour le premier lancement.
 
-        Filtre les actions proposées pour ne conserver que celles qui peuvent
-        faire avancer l'installation (installation, téléchargement, démarrage
-        d'un serveur ou réparation).
+        Seule l'action la plus urgente est proposée, celle qui permet de
+        faire avancer le workflow le plus critique en cours.
 
         Returns:
-            Liste des actions à présenter à l'utilisateur.
+            Liste contenant au plus l'action prioritaire.
         """
-        return [
-            action
-            for action in self.analyze()
-            if action.action_type
-            in {
-                RuntimeActionType.INSTALL_PACKAGE,
-                RuntimeActionType.DOWNLOAD_MODEL,
-                RuntimeActionType.START_SERVER,
-                RuntimeActionType.REPAIR,
-                RuntimeActionType.CONFIGURE,
-                RuntimeActionType.RETRY,
-            }
-        ]
+        top = self.top_action()
+        if top is None:
+            return []
+        return [top]
 
     def actions_for(self, provider_name: str) -> list[RuntimeAction]:
         """Retourne les actions d'un provider nommé."""

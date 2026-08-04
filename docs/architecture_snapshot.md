@@ -397,6 +397,20 @@ Le provider est automatiquement enregistré dans ``SummarizationFactory``. Le co
 
 ## Gestion des modèles Ollama
 
+### Machine à états
+
+`OllamaRuntimeProvider` expose `OllamaState` pour modéliser le workflow Ollama :
+
+1. `NOT_INSTALLED` — Ollama n'est pas installé.
+2. `INSTALLED` — Ollama est installé, le serveur est arrêté.
+3. `SERVER_STARTED` — le serveur répond, le modèle n'est pas installé.
+4. `MODEL_AVAILABLE` — le serveur répond, le modèle configuré est installé.
+
+Avant chaque opération (`install_model`, `remove_model`, `generate`), le provider
+vérifie son état et retourne un `RuntimeReport` explicite si l'opération est
+impossible. Aucun appel HTTP n'est effectué si les prérequis ne sont pas
+satisfaits.
+
 ### Détection automatique
 
 `OllamaSummarizationService` expose une méthode ``available_models()`` qui interroge ``/api/tags`` pour récupérer la liste des modèles installés localement. La méthode retourne une liste triée des noms et lève ``RuntimeError`` en cas d'indisponibilité du serveur ou de réponse invalide.
