@@ -848,6 +848,16 @@ class TestOllamaRuntimeProvider(unittest.TestCase):
 
         self.assertFalse(provider.can_start_server())
 
+    def test_set_model_changes_active_model(self) -> None:
+        """set_model met à jour le modèle configuré."""
+        provider = OllamaRuntimeProvider()
+
+        report = provider.set_model("mistral")
+
+        self.assertEqual(provider.model, "mistral")
+        self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+        self.assertIn("mistral", report.message)
+
 
 class TestCudaRuntimeProvider(unittest.TestCase):
     """Tests du provider CUDA."""

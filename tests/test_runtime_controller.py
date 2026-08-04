@@ -298,6 +298,54 @@ class TestRuntimeController(unittest.TestCase):
         self.assertEqual(report.status, RuntimeStatus.ERROR)
         self.assertIn("introuvable", report.message)
 
+    def test_install_model_calls_provider(self) -> None:
+        """install_model délègue au provider avec le nom du modèle."""
+        provider = MagicMock()
+        provider.name = "ollama"
+        provider.install_model.return_value = RuntimeReport(
+            provider_name="ollama",
+            status=RuntimeStatus.HEALTHY,
+            message="installed",
+        )
+        controller = self._controller([provider])
+
+        report = controller.install_model("ollama", "mistral")
+
+        provider.install_model.assert_called_once_with("mistral")
+        self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+
+    def test_remove_model_calls_provider(self) -> None:
+        """remove_model délègue au provider avec le nom du modèle."""
+        provider = MagicMock()
+        provider.name = "ollama"
+        provider.remove_model.return_value = RuntimeReport(
+            provider_name="ollama",
+            status=RuntimeStatus.HEALTHY,
+            message="removed",
+        )
+        controller = self._controller([provider])
+
+        report = controller.remove_model("ollama", "llama3.2")
+
+        provider.remove_model.assert_called_once_with("llama3.2")
+        self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+
+    def test_set_model_calls_provider(self) -> None:
+        """set_model délègue au provider avec le nom du modèle."""
+        provider = MagicMock()
+        provider.name = "ollama"
+        provider.set_model.return_value = RuntimeReport(
+            provider_name="ollama",
+            status=RuntimeStatus.HEALTHY,
+            message="selected",
+        )
+        controller = self._controller([provider])
+
+        report = controller.set_model("ollama", "mistral")
+
+        provider.set_model.assert_called_once_with("mistral")
+        self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+
 
 if __name__ == "__main__":
     unittest.main()

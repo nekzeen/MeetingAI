@@ -4,13 +4,16 @@ from __future__ import annotations
 
 from functools import partial
 
-from PySide6.QtCore import QThread, Signal
+from collections.abc import Callable
+
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
@@ -70,6 +73,26 @@ class _StartServerThread(QThread):
         """Démarre le serveur en arrière-plan."""
         report = self._controller.start_server(self._provider_name)
         self.start_finished.emit(report)
+
+
+class _OperationThread(QThread):
+    """Thread d'exécution d'une opération arbitraire du Runtime."""
+
+    operation_finished = Signal(RuntimeReport)
+
+    def __init__(
+        self,
+        operation: Callable[[], RuntimeReport],
+        parent: QWidget | None = None,
+    ) -> None:
+        """Initialise le thread avec l'opération à exécuter."""
+        super().__init__(parent)
+        self._operation = operation
+
+    def run(self) -> None:
+        """Exécute l'opération en arrière-plan."""
+        report = self._operation()
+        self.operation_finished.emit(report)
 
 
 class RuntimeWindow(QDialog):
@@ -201,6 +224,39 @@ class RuntimeWindow(QDialog):
         self._ollama_info_label.setObjectName("ollama_info_label")
         self._ollama_info_label.setWordWrap(True)
         ollama_layout.addWidget(self._ollama_info_label)
+
+        ollama_models_label = QLabel("Modèles installés :", self)
+        ollama_layout.addWidget(ollama_models_label)
+
+        self._ollama_models_list = QListWidget(self)
+        self._ollama_models_list.setObjectName("ollama_models_list")
+        ollama_layout.addWidget(self._ollama_models_list)
+
+        self._ollama_model_input = QLineEdit(self)
+        self._ollama_model_input.setObjectName("ollama_model_input")
+        self._ollama_model_input.setPlaceholderText(
+            "Nom du modèle à télécharger (ex. llama3.2)"
+        )
+        ollama_layout.addWidget(self._ollama_model_input)
+
+        ollama_buttons_layout = QHBoxLayout()
+
+        self._ollama_download_button = QPushButton("Télécharger", self)
+        self._ollama_download_button.setObjectName("ollama_download_button")
+        self._ollama_download_button.clicked.connect(self._on_ollama_download)
+        ollama_buttons_layout.addWidget(self._ollama_download_button)
+
+        self._ollama_select_button = QPushButton("Sélectionner", self)
+        self._ollama_select_button.setObjectName("ollama_select_button")
+        self._ollama_select_button.clicked.connect(self._on_ollama_select)
+        ollama_buttons_layout.addWidget(self._ollama_select_button)
+
+        self._ollama_remove_button = QPushButton("Supprimer", self)
+        self._ollama_remove_button.setObjectName("ollama_remove_button")
+        self._ollama_remove_button.clicked.connect(self._on_ollama_remove)
+        ollama_buttons_layout.addWidget(self._ollama_remove_button)
+
+        ollama_layout.addLayout(ollama_buttons_layout)
 
         self._ollama_progress = QProgressBar(self)
         self._ollama_progress.setObjectName("ollama_progress")
@@ -446,6 +502,120 @@ class RuntimeWindow(QDialog):
 
         self._refresh()
 
+    def _run_operation(
+        self,
+        operation: Callable[[], RuntimeReport],
+        progress: QProgressBar,
+        button: QPushButton | None,
+        title: str,
+        error_title: str,
+    ) -> _OperationThread:
+        """Exécute une opération longue dans un thread et affiche sa progression."""
+        if button is not None:
+            button.setEnabled(False)
+        progress.setVisible(True)
+
+        thread = _OperationThread(operation, self)
+        thread.operation_finished.connect(
+            lambda report: self._on_operation_finished(
+                report, progress, button, title, error_title
+            )
+        )
+        thread.finished.connect(thread.deleteLater)
+        thread.start()
+        return thread
+
+    def _on_operation_finished(
+        self,
+        report: RuntimeReport,
+        progress: QProgressBar,
+        button: QPushButton | None,
+        title: str,
+        error_title: str,
+    ) -> None:
+        """Gère la fin d'une opération et rafraîchit l'affichage."""
+        progress.setVisible(False)
+        if button is not None:
+            button.setEnabled(True)
+
+        if report.status == RuntimeStatus.HEALTHY:
+            QMessageBox.information(self, title, report.message)
+        else:
+            message = report.message
+            error = report.details.get("error")
+            if error:
+                message += f"\n\nCause : {error}"
+            QMessageBox.warning(self, error_title, message)
+
+        self._refresh()
+
+    def _on_ollama_download(self) -> None:
+        """Lance le téléchargement du modèle saisi."""
+        model_name = self._ollama_model_input.text().strip()
+        if not model_name:
+            QMessageBox.warning(
+                self,
+                "Modèle manquant",
+                "Veuillez saisir un nom de modèle à télécharger.",
+            )
+            return
+
+        self._run_operation(
+            partial(self._controller.install_model, "ollama", model_name),
+            self._ollama_progress,
+            self._ollama_download_button,
+            "Installation terminée",
+            "Échec de l'installation",
+        )
+
+    def _on_ollama_select(self) -> None:
+        """Sélectionne le modèle choisi dans la liste comme modèle actif."""
+        item = self._ollama_models_list.currentItem()
+        if item is None:
+            QMessageBox.warning(
+                self,
+                "Aucun modèle",
+                "Veuillez sélectionner un modèle dans la liste.",
+            )
+            return
+
+        model_name = item.data(Qt.ItemDataRole.UserRole)
+        self._run_operation(
+            partial(self._controller.set_model, "ollama", model_name),
+            self._ollama_progress,
+            self._ollama_select_button,
+            "Sélection terminée",
+            "Échec de la sélection",
+        )
+
+    def _on_ollama_remove(self) -> None:
+        """Supprime le modèle choisi dans la liste."""
+        item = self._ollama_models_list.currentItem()
+        if item is None:
+            QMessageBox.warning(
+                self,
+                "Aucun modèle",
+                "Veuillez sélectionner un modèle à supprimer.",
+            )
+            return
+
+        model_name = item.data(Qt.ItemDataRole.UserRole)
+        reply = QMessageBox.question(
+            self,
+            "Confirmer la suppression",
+            f"Supprimer le modèle '{model_name}' ?",
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        self._run_operation(
+            partial(self._controller.remove_model, "ollama", model_name),
+            self._ollama_progress,
+            self._ollama_remove_button,
+            "Suppression terminée",
+            "Échec de la suppression",
+        )
+
     def _update_ollama_section(self) -> None:
         """Met à jour la section Ollama avec le diagnostic du provider."""
         report = self._controller.report_for("ollama")
@@ -457,6 +627,7 @@ class RuntimeWindow(QDialog):
             self._ollama_model_label.setText("Modèle configuré :")
             self._ollama_models_label.setText("Modèles installés :")
             self._ollama_info_label.setText("Information :")
+            self._ollama_models_list.clear()
             return
 
         details = report.details
@@ -464,9 +635,12 @@ class RuntimeWindow(QDialog):
         version = details.get("version", "—")
         installed = details.get("installed_models", [])
         configured = details.get("model", "—")
-        package_installed = details.get("package_installed", False)
 
-        server_state = "joignable" if version not in (None, "—", "unknown") else "arrêté ou inaccessible"
+        server_state = (
+            "joignable"
+            if version not in (None, "—", "unknown")
+            else "arrêté ou inaccessible"
+        )
 
         self._ollama_provider_label.setText(f"Provider : {report.provider_name}")
         self._ollama_status_label.setText(f"État : {report.status.name}")
@@ -477,6 +651,14 @@ class RuntimeWindow(QDialog):
             f"Modèles installés : {', '.join(str(m) for m in installed) or 'aucun'}"
         )
         self._ollama_info_label.setText(f"Information : {report.message}")
+
+        self._ollama_models_list.clear()
+        for model in installed:
+            item = QListWidgetItem(str(model))
+            item.setData(Qt.ItemDataRole.UserRole, model)
+            self._ollama_models_list.addItem(item)
+            if str(model) == str(configured):
+                item.setSelected(True)
 
     def _update_whisper_section(self) -> None:
         """Met à jour la section Whisper avec le diagnostic du provider."""

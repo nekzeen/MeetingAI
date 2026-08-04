@@ -127,6 +127,66 @@ class RuntimeController:
             message=f"Provider '{provider_name}' introuvable.",
         )
 
+    def _report_method_not_supported(
+        self,
+        provider_name: str,
+        operation: str,
+    ) -> RuntimeReport:
+        """Retourne un rapport d'erreur pour une opération non supportée."""
+        return RuntimeReport(
+            provider_name=provider_name,
+            status=RuntimeStatus.ERROR,
+            message=(
+                f"Le provider '{provider_name}' ne supporte pas "
+                f"l'opération '{operation}'."
+            ),
+        )
+
+    def install_model(self, provider_name: str, model_name: str) -> RuntimeReport:
+        """Installe un modèle donné pour un provider donné."""
+        for provider in self._manager.providers:
+            if provider.name == provider_name:
+                if not callable(getattr(provider, "install_model", None)):
+                    return self._report_method_not_supported(
+                        provider_name, "install_model"
+                    )
+                return provider.install_model(model_name)
+        return RuntimeReport(
+            provider_name=provider_name,
+            status=RuntimeStatus.ERROR,
+            message=f"Provider '{provider_name}' introuvable.",
+        )
+
+    def remove_model(self, provider_name: str, model_name: str) -> RuntimeReport:
+        """Supprime un modèle donné pour un provider donné."""
+        for provider in self._manager.providers:
+            if provider.name == provider_name:
+                if not callable(getattr(provider, "remove_model", None)):
+                    return self._report_method_not_supported(
+                        provider_name, "remove_model"
+                    )
+                return provider.remove_model(model_name)
+        return RuntimeReport(
+            provider_name=provider_name,
+            status=RuntimeStatus.ERROR,
+            message=f"Provider '{provider_name}' introuvable.",
+        )
+
+    def set_model(self, provider_name: str, model_name: str) -> RuntimeReport:
+        """Sélectionne un modèle comme modèle actif pour un provider donné."""
+        for provider in self._manager.providers:
+            if provider.name == provider_name:
+                if not callable(getattr(provider, "set_model", None)):
+                    return self._report_method_not_supported(
+                        provider_name, "set_model"
+                    )
+                return provider.set_model(model_name)
+        return RuntimeReport(
+            provider_name=provider_name,
+            status=RuntimeStatus.ERROR,
+            message=f"Provider '{provider_name}' introuvable.",
+        )
+
     def check_transcription(self) -> RuntimeGuardResult:
         """Vérifie les prérequis pour une transcription."""
         return self._guard.check_transcription()

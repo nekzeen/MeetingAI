@@ -229,6 +229,12 @@ pour l'interface. Il est instancié dans `ApplicationContext` et enregistré dan
 - `actions()` : actions recommandées.
 - `refresh()` : rafraîchit les trois informations précédentes.
 - `install(provider_name)` : déclenche l'installation d'un provider.
+- `install_model(provider_name, model_name)` : installe un modèle donné pour un
+  provider.
+- `remove_model(provider_name, model_name)` : supprime un modèle donné pour un
+  provider.
+- `set_model(provider_name, model_name)` : sélectionne un modèle comme modèle
+  actif pour un provider.
 - `start_server(provider_name)` : déclenche le démarrage du serveur d'un
   provider (Ollama).
 - `check_transcription()`, `check_summary()`, `check_pipeline()` : vérification
@@ -252,16 +258,18 @@ des prérequis pour chaque opération.
 
 La section Whisper intègre un bouton **Installer** qui déclenche
 `RuntimeController.install('whisper')` dans un thread secondaire. La section
-Ollama affiche une barre de progression pour l'installation du modèle et le
-démarrage du serveur via `RuntimeController.install('ollama')` et
-`RuntimeController.start_server('ollama')`. Les opérations longues tournent
-dans un `QThread` et `RuntimeWindow` rafraîchit automatiquement le diagnostic
-à la fin.
+Ollama affiche la liste des modèles installés, un champ de saisie et trois
+boutons **Télécharger**, **Sélectionner** et **Supprimer**. Ces actions
+appellent respectivement `RuntimeController.install_model('ollama', ...)`,
+`RuntimeController.set_model('ollama', ...)` et
+`RuntimeController.remove_model('ollama', ...)`. Le démarrage du serveur est
+aussi possible via `RuntimeController.start_server('ollama')`. Toutes les
+opérations longues tournent dans un `QThread` et `RuntimeWindow` rafraîchit
+automatiquement le diagnostic à la fin.
 
 La fenêtre s'ouvre depuis le menu **Outils > État du système**. Les boutons
-sont activés selon la disponibilité de l'action (`available`). L'installation
-Whisper, le téléchargement d'un modèle Ollama et le démarrage du serveur
-Ollama sont opérationnels.
+sont activés selon la disponibilité de l'action (`available`). La gestion
+des modèles Whisper et Ollama est opérationnelle.
 
 ### ActionManager et MainWindow
 

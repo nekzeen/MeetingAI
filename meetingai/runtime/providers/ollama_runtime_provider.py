@@ -505,6 +505,17 @@ class OllamaRuntimeProvider(RuntimeProvider):
             details={"host": self._host},
         )
 
+    def set_model(self, model_name: str) -> RuntimeReport:
+        """Change le modèle actuellement configuré."""
+        self._model = model_name
+        return RuntimeReport(
+            provider_name=self.name,
+            status=RuntimeStatus.HEALTHY,
+            capabilities=self.capabilities,
+            message=f"Modèle actif changé pour '{model_name}'.",
+            details={"host": self._host, "model": model_name},
+        )
+
     def install(self) -> RuntimeReport:
         """Installe le modèle configuré."""
         return self.install_model(self._model)

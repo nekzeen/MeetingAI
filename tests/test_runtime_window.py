@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QGroupBox,
     QLabel,
+    QLineEdit,
     QListWidget,
     QPushButton,
     QTableWidget,
@@ -271,6 +272,34 @@ class TestRuntimeWindow(unittest.TestCase):
         self.assertIsNotNone(thread)
         self.assertTrue(thread.wait(2000))
         self.controller.start_server.assert_called_once_with("ollama")
+
+    def test_ollama_models_list_is_populated(self) -> None:
+        """La liste des modèles Ollama est remplie avec le diagnostic."""
+        report = RuntimeReport(
+            provider_name="ollama",
+            status=RuntimeStatus.HEALTHY,
+            message="ok",
+            details={
+                "host": "http://localhost:11434",
+                "version": "0.5.0",
+                "model": "llama3.2",
+                "installed_models": ["llama3.2", "mistral"],
+            },
+        )
+        self.controller.report_for = MagicMock(
+            side_effect=lambda name: report if name == "ollama" else None
+        )
+        self.window._refresh()
+
+        models_list = self.window.findChild(QListWidget, "ollama_models_list")
+        self.assertEqual(models_list.count(), 2)
+        self.assertIn("mistral", models_list.item(1).text())
+
+    def test_ollama_model_input_exists(self) -> None:
+        """Le champ de saisie d'un modèle Ollama est présent."""
+        self.assertIsNotNone(
+            self.window.findChild(QLineEdit, "ollama_model_input")
+        )
 
 
 if __name__ == "__main__":
