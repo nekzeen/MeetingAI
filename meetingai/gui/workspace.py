@@ -85,7 +85,7 @@ class _EditorWidget(QWidget):
         """Construit le splitter principal : panneau latéral + zone centrale."""
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        main_layout.setSpacing(4)
 
         left_panel = self._build_left_panel()
         right_panel = self._build_right_panel()
@@ -93,27 +93,21 @@ class _EditorWidget(QWidget):
         splitter = QSplitter(Qt.Orientation.Horizontal, self)
         splitter.addWidget(left_panel)
         splitter.addWidget(right_panel)
-        splitter.setSizes([300, 900])
+        splitter.setSizes([280, 920])
+        splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 4)
+        splitter.setHandleWidth(8)
         main_layout.addWidget(splitter)
 
     def _build_left_panel(self) -> QWidget:
         """Panneau latéral avec informations média et historique."""
         panel = QWidget(self)
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setContentsMargins(4, 0, 4, 0)
         layout.setSpacing(12)
-
-        header = QLabel("Média en cours", panel)
-        header.setStyleSheet("font-weight: bold;")
-        layout.addWidget(header)
 
         self._info_widget = MediaInformationWidget(panel)
         layout.addWidget(self._info_widget)
-
-        history_header = QLabel("Historique", panel)
-        history_header.setStyleSheet("font-weight: bold;")
-        layout.addWidget(history_header)
 
         self._history_widget = HistoryWidget(panel)
         layout.addWidget(self._history_widget)
@@ -125,8 +119,8 @@ class _EditorWidget(QWidget):
         """Panneau central avec transcription et résumé."""
         panel = QWidget(self)
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        layout.setContentsMargins(4, 0, 0, 0)
+        layout.setSpacing(8)
 
         self._transcript_widget = TranscriptWidget(panel)
         self._summary_widget = SummaryWidget(panel)
@@ -134,9 +128,10 @@ class _EditorWidget(QWidget):
         splitter = QSplitter(Qt.Orientation.Vertical, panel)
         splitter.addWidget(self._transcript_widget)
         splitter.addWidget(self._summary_widget)
-        splitter.setSizes([600, 200])
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([525, 225])
+        splitter.setStretchFactor(0, 7)
+        splitter.setStretchFactor(1, 3)
+        splitter.setHandleWidth(8)
 
         layout.addWidget(splitter)
         return panel

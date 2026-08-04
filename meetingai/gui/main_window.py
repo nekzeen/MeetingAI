@@ -12,7 +12,9 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QStatusBar,
+    QStyle,
     QToolBar,
+    QToolButton,
     QWidget,
 )
 
@@ -116,6 +118,9 @@ class MainWindow(QMainWindow):
                 self._context.transcription_controller.transcription_status.connect(
                     self._show_transcription_status
                 )
+                self._context.transcription_controller.transcription_progress.connect(
+                    self._on_transcription_progress
+                )
                 self._context.transcription_controller.transcription_ready.connect(
                     self._on_transcription_ready
                 )
@@ -141,6 +146,13 @@ class MainWindow(QMainWindow):
     def _show_transcription_status(self, message: str) -> None:
         """Affiche le message de phase de transcription et active la progression."""
         self.statusBar().showMessage(message)
+        self._progress_bar.setRange(0, 0)
+        self._progress_bar.setVisible(True)
+
+    def _on_transcription_progress(self, value: int) -> None:
+        """Met à jour la barre de progression pendant la transcription."""
+        self._progress_bar.setRange(0, 100)
+        self._progress_bar.setValue(value)
         self._progress_bar.setVisible(True)
 
     def _show_transcription_error(self, message: str) -> None:
@@ -223,38 +235,70 @@ class MainWindow(QMainWindow):
         help_menu.addAction(actions["about"])
 
     def _setup_tool_bar(self) -> None:
-        """Ajoute une barre d'outils avec les actions du workflow."""
+        """Ajoute une barre d'outils moderne avec icônes et boutons homogènes."""
         tool_bar = self.addToolBar("Principal")
         tool_bar.setObjectName("main_tool_bar")
         tool_bar.setMovable(False)
-        tool_bar.setToolButtonStyle(
-            Qt.ToolButtonStyle.ToolButtonTextUnderIcon
+        tool_bar.setStyleSheet(
+            "QToolBar { border: none; padding: 8px; background: #f8f9fa; spacing: 6px; }"
+            "QToolBar QToolButton {"
+            "  border: 1px solid #ced4da;"
+            "  border-radius: 6px;"
+            "  min-width: 72px;"
+            "  min-height: 64px;"
+            "  padding: 6px;"
+            "  background: #ffffff;"
+            "  font-weight: bold;"
+            "  font-size: 12px;"
+            "}"
+            "QToolBar QToolButton:hover:!pressed { background: #e9ecef; }"
+            "QToolBar QToolButton:pressed { background: #dee2e6; }"
+            "QToolBar QToolButton:disabled { color: #adb5bd; }"
         )
+
         actions = self._action_manager.actions
-        tool_bar.addAction(actions["open"])
-        tool_bar.addAction(actions["transcribe"])
-        tool_bar.addAction(actions["summarize"])
-        tool_bar.addAction(actions["export_markdown"])
+        icons = {
+            "open": QStyle.StandardPixmap.SP_DialogOpenButton,
+            "transcribe": QStyle.StandardPixmap.SP_MediaPlay,
+            "summarize": QStyle.StandardPixmap.SP_FileDialogContentsView,
+            "export_markdown": QStyle.StandardPixmap.SP_DialogSaveButton,
+        }
+        for key in ("open", "transcribe", "summarize", "export_markdown"):
+            action = actions[key]
+            button = QToolButton(tool_bar)
+            button.setObjectName(f"tool_button_{key}")
+            button.setText(action.text())
+            button.setToolButtonStyle(
+                Qt.ToolButtonStyle.ToolButtonTextUnderIcon
+            )
+            button.setIcon(
+                self.style().standardIcon(icons.get(key, QStyle.StandardPixmap.SP_ComputerIcon))
+            )
+            button.setIconSize(tool_bar.iconSize())
+            button.clicked.connect(action.trigger)
+            tool_bar.addWidget(button)
 
     def _setup_status_bar(self) -> None:
-        """Construit la barre de statut avec les fournisseurs et la progression."""
+        """Construit la barre de statut avec des indicateurs lisibles."""
         status_bar = QStatusBar(self)
         status_bar.setObjectName("main_status_bar")
         self.setStatusBar(status_bar)
 
-        self._runtime_status_label = QLabel("Runtime : —", self)
+        self._runtime_status_label = QLabel("Système : Inconnu", self)
         self._runtime_status_label.setObjectName("runtime_status_label")
         status_bar.addWidget(self._runtime_status_label)
 
-        self._stt_provider_label = QLabel("STT : —", self)
+        status_bar.addWidget(QLabel(" | ", self))
+
+        self._stt_provider_label = QLabel("Transcription : —", self)
         self._stt_provider_label.setObjectName("stt_provider_label")
         status_bar.addWidget(self._stt_provider_label)
 
-        self._ia_provider_label = QLabel("IA : —", self)
+        status_bar.addWidget(QLabel(" | ", self))
+
+        self._ia_provider_label = QLabel("Résumé : —", self)
         self._ia_provider_label.setObjectName("ia_provider_label")
         status_bar.addWidget(self._ia_provider_label)
-
-        status_bar.addPermanentWidget(QWidget(self), stretch=1)
 
         self._progress_bar = QProgressBar(self)
         self._progress_bar.setObjectName("progress_bar")
@@ -266,27 +310,43 @@ class MainWindow(QMainWindow):
 
         self._update_status_bar()
 
+    @staticmethod
+    def _status_indicator(status: object) -> tuple[str, str]:
+        """Retourne un libellé et une couleur simplifiés pour un état Runtime."""
+        from meetingai.runtime.runtime_status import RuntimeStatus
+
+        labels = {
+            RuntimeStatus.HEALTHY: ("Prêt", "#28a745"),
+            RuntimeStatus.DEGRADED: ("Dégradé", "#ffc107"),
+            RuntimeStatus.MISSING: ("Manquant", "#dc3545"),
+            RuntimeStatus.ERROR: ("Erreur", "#dc3545"),
+            RuntimeStatus.UNKNOWN: ("Inconnu", "#6c757d"),
+        }
+        return labels.get(status, ("Inconnu", "#6c757d"))
+
     def _update_status_bar(self) -> None:
-        """Rafraîchit les fournisseurs affichés dans la barre de statut."""
+        """Rafraîchit les indicateurs de la barre de statut."""
         if self._context is None:
             return
         runtime = self._context.runtime_controller
-        status = runtime.status()
-        self._runtime_status_label.setText(f"Runtime : {status.name}")
+        global_status = runtime.status()
+        label, color = self._status_indicator(global_status)
+        self._runtime_status_label.setText(f"Système : {label}")
+        self._runtime_status_label.setStyleSheet(f"color: {color};")
+
         for name in ("whisper", "ollama"):
             report = runtime.report_for(name)
             text = "—"
             if report is not None:
-                text = f"{report.provider_name} ({report.status.name})"
-            if name == "whisper":
-                self._stt_provider_label.setText(f"STT : {text}")
-            else:
-                self._ia_provider_label.setText(f"IA : {text}")
-
-    def _show_transcription_status(self, message: str) -> None:
-        """Affiche le message de phase de transcription et active la progression."""
-        self.statusBar().showMessage(message)
-        self._progress_bar.setVisible(True)
+                label, color = self._status_indicator(report.status)
+                display = "Transcription" if name == "whisper" else "Résumé"
+                text = f"{display} : {label}"
+                if name == "whisper":
+                    self._stt_provider_label.setText(text)
+                    self._stt_provider_label.setStyleSheet(f"color: {color};")
+                else:
+                    self._ia_provider_label.setText(text)
+                    self._ia_provider_label.setStyleSheet(f"color: {color};")
 
     def _center_on_screen(self) -> None:
         """Centre la fenêtre sur l'écran principal."""

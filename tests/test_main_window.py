@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QStackedWidget,
     QStatusBar,
     QToolBar,
+    QToolButton,
     QVBoxLayout,
 )
 
@@ -120,12 +121,14 @@ class TestMainWindow(unittest.TestCase):
         self.assertIn("À propos", texts)
 
     def test_has_tool_bar(self) -> None:
-        """La fenêtre possède une barre d'outils avec les actions du workflow."""
+        """La fenêtre possède une barre d'outils avec des boutons du workflow."""
         toolbars = self.window.findChildren(QToolBar)
         self.assertEqual(len(toolbars), 1)
-        texts = [action.text() for action in toolbars[0].actions()]
+        buttons = toolbars[0].findChildren(QToolButton)
+        texts = [button.text() for button in buttons]
         self.assertIn("Ouvrir", texts)
         self.assertIn("Transcrire", texts)
+        self.assertIn("Exporter en Markdown", texts)
 
     def test_status_bar_has_provider_labels(self) -> None:
         """La barre d'état affiche les fournisseurs et la progression."""

@@ -104,17 +104,23 @@ le workflow utilisateur :
 - **Zone d'édition** : dès qu'un média est chargé, `Workspace` bascule vers
   `_EditorWidget`. Un `QSplitter` horizontal place le panneau latéral
   (informations média + historique) à gauche et la zone de travail principale
-  (transcription + résumé) à droite. La transcription occupe la majeure partie
-  de l'écran.
+  (transcription + résumé) à droite. Chaque panneau est un `QGroupBox` bordé
+  afin de bien délimiter les zones. La transcription occupe environ 70 % de
+  la hauteur, le résumé 30 %.
 - **Barre d'outils** : expose les actions clés (Ouvrir, Transcrire, Résumer,
-  Exporter) via `ActionManager`.
-- **Barre d'état** : affiche l'état du Runtime, le fournisseur STT, le
-  fournisseur IA, un message de progression et une barre de progression
-  indéterminée pendant les traitements.
+  Exporter) sous forme de `QToolButton` homogènes avec icônes standard du
+  style système et texte sous l'icône.
+- **Barre d'état** : affiche l'état du système, de la transcription et du
+  résumé sous forme de messages simplifiés (Prêt / Dégradé / Manquant /
+  Erreur) colorés. Une barre de progression affiche la progression réelle
+  de la transcription (0–100 %).
+- **Retour visuel** : pendant la transcription, la barre de progression
+  reflète `transcription_progress` et le message de statut est mis à jour
+  en temps réel.
 
-Les informations du média sont présentées de manière compacte dans
-`MediaInformationWidget` : nom, type et taille, les détails techniques étant
-accessibles uniquement via des tooltips.
+Les informations du média sont présentées sous forme d'une fiche compacte
+(`MediaInformationWidget`) : nom en valeur, type et taille alignés à droite
+sur des lignes distinctes, sans chevauchement.
 
 ---
 

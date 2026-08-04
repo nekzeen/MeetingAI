@@ -1,35 +1,54 @@
 """Classe de base pour les panneaux de l'interface MeetingAI."""
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QGroupBox, QVBoxLayout, QWidget
 
 
-class PanelWidget(QWidget):
-    """Panneau affichant un titre centré et une zone de contenu remplaçable.
+class PanelWidget(QGroupBox):
+    """Panneau groupé affichant un titre et une zone de contenu remplaçable.
 
     Cette classe de base évite la duplication entre les différents panneaux
-    de l'application (transcription, résumé, historique). Elle expose une
-    méthode ``set_content`` permettant de remplacer ultérieurement le contenu
-    central par un widget métier sans modifier la structure du panneau.
+    de l'application (transcription, résumé, historique). Le titre est intégré
+    dans la bordure du ``QGroupBox``. Elle expose une méthode ``set_content``
+    permettant de remplacer le contenu central par un widget métier sans
+    modifier la structure du panneau.
 
     Args:
-        title: Texte affiché en en-tête du panneau.
+        title: Texte affiché dans l'en-tête du panneau.
         parent: Widget parent éventuel.
     """
 
     def __init__(self, title: str, parent: QWidget | None = None) -> None:
-        """Initialise le panneau avec son titre centré."""
-        super().__init__(parent)
-        self._setup_ui(title)
+        """Initialise le panneau avec son titre."""
+        super().__init__(title, parent)
+        self._setup_ui()
 
-    def _setup_ui(self, title: str) -> None:
-        """Construit le layout vertical avec le titre et la zone de contenu."""
+    def _setup_ui(self) -> None:
+        """Construit le layout vertical avec la zone de contenu."""
+        self.setStyleSheet(
+            "QGroupBox {"
+            "  border: 1px solid #ced4da;"
+            "  border-radius: 6px;"
+            "  background-color: #ffffff;"
+            "  font-weight: bold;"
+            "  font-size: 14px;"
+            "  margin-top: 12px;"
+            "  padding-top: 8px;"
+            "}"
+            "QGroupBox::title {"
+            "  subcontrol-origin: margin;"
+            "  subcontrol-position: top left;"
+            "  padding: 4px 8px;"
+            "  color: #212529;"
+            "}"
+        )
+
         main_layout = QVBoxLayout(self)
-        self._title_label = QLabel(title, self)
-        self._title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_layout.addWidget(self._title_label)
+        main_layout.setContentsMargins(14, 14, 14, 14)
+        main_layout.setSpacing(8)
 
         self._content_layout = QVBoxLayout()
+        self._content_layout.setContentsMargins(8, 8, 8, 8)
+        self._content_layout.setSpacing(0)
         main_layout.addLayout(self._content_layout)
         main_layout.setStretchFactor(self._content_layout, 1)
 
