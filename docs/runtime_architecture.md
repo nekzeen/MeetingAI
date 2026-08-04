@@ -68,12 +68,15 @@ Aucun de ces providers ne modifie le système lors du diagnostic.
 
 ## Gestion des modèles Whisper
 
-``WhisperRuntimeProvider`` est le gestionnaire unique des modèles Whisper. Il
-offre les opérations suivantes, chacune retournant un ``RuntimeReport`` :
+``WhisperRuntimeProvider`` est le gestionnaire unique des modèles Whisper et
+l'unique source de vérité concernant l'emplacement des modèles. Il offre les
+opérations suivantes, chacune retournant un ``RuntimeReport`` :
 
 - ``list_installed_models(models_directory)`` : liste les modèles complets.
 - ``is_model_present(model_size, models_directory)`` : détecte un modèle local.
-- ``install_model(model_size, models_directory)`` : télécharge un modèle.
+- ``install_model(model_size, models_directory)`` : télécharge un modèle dans
+  ``models_directory / model_size`` et retourne le chemin réel fourni par
+  ``faster-whisper``.
 - ``remove_model(model_size, models_directory)`` : supprime un modèle local.
 - ``verify_model_integrity(model_size, models_directory)`` : vérifie la présence
   des fichiers requis.
@@ -82,7 +85,7 @@ offre les opérations suivantes, chacune retournant un ``RuntimeReport`` :
 un provider injecté via le paramètre ``runtime_provider`` et, par défaut, en crée
 un avec sa configuration. Lors du chargement, le service demande au provider
 d'installer le modèle si celui-ci n'est pas présent, puis charge le modèle en
-mode ``local_files_only=True``.
+mode ``local_files_only=True`` depuis le chemin exact retourné dans le rapport.
 
 ## Gestion des modèles et du serveur Ollama
 

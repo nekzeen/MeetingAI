@@ -106,23 +106,25 @@ Le modèle `faster-whisper` est chargé de manière **paresseuse** :
 
 ### Résolution du modèle
 
-`FasterWhisperService` tente d'abord de charger un modèle local situé dans
-`models_directory / model_size` (par exemple `models/small`). Ce chemin permet
-aux utilisateurs avancés d'utiliser un modèle préalablement téléchargé
-manuellement.
+`WhisperRuntimeProvider` est l'unique source de vérité pour l'emplacement des
+modèles. Il tente d'abord de détecter un modèle déjà présent dans
+`models_directory / model_size` (par exemple `models/small`). Si le modèle est
+présent, ce chemin est utilisé directement.
 
-Si ce répertoire n'existe pas, le service s'appuie sur le **mécanisme natif de**
-`faster-whisper` : le modèle est identifié par son nom (`small`, `medium`...),
-téléchargé automatiquement dans le cache configuré par `download_root` (ici
-`models/`) puis chargé. Aucune manipulation manuelle n'est donc requise pour
-une installation neuve disposant d'une connexion internet.
+Si le modèle n'existe pas, le provider télécharge le modèle dans
+`models_directory / model_size` via `faster_whisper.download_model` et retourne
+le chemin réel fourni par la bibliothèque. `FasterWhisperService` charge le
+modèle en `local_files_only=True` depuis ce chemin exact. Aucune manipulation
+manuelle n'est donc requise pour une installation neuve disposant d'une
+connexion internet.
 
 Si le téléchargement échoue (pas de réseau, espace insuffisant...), une
 `RuntimeError` claire est remontée. Elle indique :
 
 - le nom du modèle concerné ;
-- le répertoire de cache utilisé ;
-- la commande `FasterWhisperService.download_model(...)` permettant de
+- l'emplacement exact utilisé ;
+- la cause réelle de l'échec (message retourné par `WhisperRuntimeProvider`) ;
+- la commande `WhisperRuntimeProvider.install_model(...)` permettant de
   télécharger le modèle explicitement.
 
 Cette erreur est remontée jusqu'à l'interface via `transcription_failed` (ou
@@ -190,12 +192,13 @@ local `models_directory / model_size`. Cette information permet à
 
 ### Téléchargement / installation
 
-`FasterWhisperService.download_model()` offre un mécanisme de téléchargement
-explicite. Cette méthode délègue à `faster_whisper.download_model()` et
-retourne le chemin du modèle téléchargé. Lors d'une première utilisation, le
-service déclenche automatiquement le téléchargement/cache natif via
-`WhisperModel(..., local_files_only=False)`. En cas d'échec, une `RuntimeError`
-explicite est remontée.
+`WhisperRuntimeProvider.install_model()` offre un mécanisme de téléchargement
+explicite. Cette méthode délègue à `faster_whisper.download_model()` en lui
+passant `output_dir=models_directory / model_size`, et retourne le chemin du
+modèle téléchargé dans le `RuntimeReport`. `FasterWhisperService` déclenche
+automatiquement cette installation lors du premier chargement si le modèle
+n'est pas déjà présent. En cas d'échec, une `RuntimeError` explicite est
+remontée.
 
 ### Erreurs
 
@@ -203,7 +206,9 @@ Si le chargement échoue (bibliothèque absente, répertoire du modèle introuva
 
 ### Contrôle explicite
 
-Les méthodes publiques `load_model()` et `download_model()` restent disponibles pour un chargement anticipé, un rechargement manuel ou un téléchargement explicite.
+Les méthodes publiques `FasterWhisperService.load_model()` et
+`WhisperRuntimeProvider.install_model()` restent disponibles pour un chargement
+anticipé, un rechargement manuel ou un téléchargement explicite.
 
 ---
 

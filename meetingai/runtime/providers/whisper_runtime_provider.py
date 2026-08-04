@@ -258,6 +258,7 @@ class WhisperRuntimeProvider(RuntimeProvider):
             if models_directory is not None
             else self._models_directory
         )
+        path = self.model_path(size, directory)
 
         if not self._has_package():
             return RuntimeReport(
@@ -265,7 +266,7 @@ class WhisperRuntimeProvider(RuntimeProvider):
                 status=RuntimeStatus.MISSING,
                 capabilities=self.capabilities,
                 message="Impossible d'installer un modèle : faster-whisper n'est pas installé.",
-                details={"model_size": size, "model_path": str(directory / size)},
+                details={"model_size": size, "model_path": str(path)},
             )
 
         faster_whisper = self._faster_whisper_module()
@@ -275,12 +276,12 @@ class WhisperRuntimeProvider(RuntimeProvider):
                 status=RuntimeStatus.ERROR,
                 capabilities=self.capabilities,
                 message="Import de faster-whisper échoué.",
-                details={"model_size": size, "model_path": str(directory / size)},
+                details={"model_size": size, "model_path": str(path)},
             )
 
         try:
             downloaded_path = Path(
-                faster_whisper.download_model(size, output_dir=directory)
+                faster_whisper.download_model(size, output_dir=str(path))
             )
             return RuntimeReport(
                 provider_name=self.name,
@@ -301,7 +302,7 @@ class WhisperRuntimeProvider(RuntimeProvider):
                 message=f"Échec du téléchargement du modèle '{size}' : {exc}.",
                 details={
                     "model_size": size,
-                    "model_path": str(directory / size),
+                    "model_path": str(path),
                     "error": str(exc),
                 },
             )

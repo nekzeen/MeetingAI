@@ -168,6 +168,7 @@ class TestFasterWhisperService(unittest.TestCase):
         report = MagicMock()
         report.status = RuntimeStatus.ERROR
         report.message = "network unreachable"
+        report.details = {}
         provider.install_model.return_value = report
 
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -193,6 +194,7 @@ class TestFasterWhisperService(unittest.TestCase):
         report = MagicMock()
         report.status = RuntimeStatus.ERROR
         report.message = "network unreachable"
+        report.details = {}
         provider.install_model.return_value = report
 
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -487,6 +489,39 @@ class TestFasterWhisperService(unittest.TestCase):
             self.assertTrue(service._used_cpu_fallback)
             self.assertEqual(result.metadata.get("device"), "cpu (fallback from cuda)")
             self.assertIn("CUDA", result.metadata.get("warning", ""))
+
+
+    @patch(
+        "meetingai.services.speech_to_text.faster_whisper_service._FASTER_WHISPER",
+        new=MagicMock(),
+    )
+    def test_build_model_uses_downloaded_path(self) -> None:
+        """_build_model utilise le chemin réel retourné par install_model."""
+        provider = MagicMock(spec=WhisperRuntimeProvider)
+        provider.is_model_present.return_value = False
+        report = MagicMock()
+        report.status = RuntimeStatus.HEALTHY
+        report.details = {"model_path": "/fake/downloaded/small"}
+        report.message = "ok"
+        provider.install_model.return_value = report
+
+        service = FasterWhisperService(
+            model_size="small",
+            models_directory="/fake/models",
+            runtime_provider=provider,
+        )
+
+        service._build_model("cpu", "int8")
+
+        from meetingai.services.speech_to_text import faster_whisper_service
+
+        expected_path = str(Path("/fake/downloaded/small"))
+        faster_whisper_service._FASTER_WHISPER.WhisperModel.assert_called_once_with(
+            expected_path,
+            device="cpu",
+            compute_type="int8",
+            local_files_only=True,
+        )
 
 
 if __name__ == "__main__":

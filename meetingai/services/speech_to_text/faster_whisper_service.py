@@ -40,9 +40,12 @@ class FasterWhisperService(SpeechToTextService):
     charge un modèle présent sur le disque local, transcrit un média et retourne
     un ``TranscriptionResult`` complet.
 
-    Si un répertoire local ``models_directory / model_size`` existe, il est
-    utilisé en priorité avec ``local_files_only=True``. Sinon, le mécanisme
-    natif de téléchargement/cache de ``faster-whisper`` est utilisé.
+    ``WhisperRuntimeProvider`` est l'unique source de vérité pour
+    l'emplacement des modèles. Si le modèle n'est pas présent localement,
+    le provider le télécharge dans ``models_directory / model_size`` et
+    retourne le chemin réel fourni par ``faster-whisper`` ;
+    ``FasterWhisperService`` charge ensuite le modèle avec
+    ``local_files_only=True``.
 
     Lorsque le périphérique demandé est ``cuda`` ou ``auto`` et que
     l'initialisation échoue (driver/cuBLAS absent...), le service bascule
@@ -208,25 +211,33 @@ class FasterWhisperService(SpeechToTextService):
         """Construit une instance ``WhisperModel`` depuis le répertoire local.
 
         Si le modèle n'est pas encore présent, le provider Runtime le télécharge
-        au préalable.
+        au préalable et retourne le chemin réel retourné par faster-whisper.
         """
         if not self._provider.is_model_present(self._model_size, self._models_directory):
             report = self._provider.install_model(
                 self._model_size, self._models_directory
             )
             if report.status != RuntimeStatus.HEALTHY:
-                raise RuntimeError(
+                error = report.details.get("error")
+                message = (
                     f"Impossible de rendre le modèle faster-whisper "
-                    f"'{self._model_size}' disponible. {report.message} "
-                    f"Vérifiez votre connexion réseau et l'accès au répertoire "
+                    f"'{self._model_size}' disponible. {report.message}"
+                )
+                if error:
+                    message += f" Cause : {error}."
+                message += (
+                    f" Vérifiez votre connexion réseau et l'accès au répertoire "
                     f"{self._models_directory}, ou installez le modèle "
                     f"explicitement avec WhisperRuntimeProvider.install_model("
                     f"'{self._model_size}', '{self._models_directory}')."
                 )
-
-        local_model_path = self._provider.model_path(
-            self._model_size, self._models_directory
-        )
+                _LOGGER.warning(message)
+                raise RuntimeError(message)
+            local_model_path = Path(report.details["model_path"])
+        else:
+            local_model_path = self._provider.model_path(
+                self._model_size, self._models_directory
+            )
         return _FASTER_WHISPER.WhisperModel(
             str(local_model_path),
             device=device,
@@ -237,10 +248,10 @@ class FasterWhisperService(SpeechToTextService):
     def load_model(self) -> None:
         """Charge le modèle faster-whisper.
 
-        Si un répertoire local ``models_directory / model_size`` existe, il est
-        utilisé en priorité. Sinon, le mécanisme natif de ``faster-whisper`` est
-        utilisé : le modèle est téléchargé dans le cache configuré par
-        ``download_root`` puis réutilisé pour les appels suivants.
+        Le provider ``WhisperRuntimeProvider`` détermine l'emplacement réel du
+        modèle. Si ``models_directory / model_size`` est déjà présent, il est
+        utilisé en priorité. Sinon, le provider télécharge le modèle dans ce
+        répertoire et retourne le chemin réel fourni par faster-whisper.
 
         Lorsque le périphérique configuré est ``cuda`` ou ``auto`` et que
         l'initialisation échoue sur un problème CUDA (driver, cuBLAS...), le
@@ -266,10 +277,16 @@ class FasterWhisperService(SpeechToTextService):
                 compute_type=self._compute_type,
             )
         except Exception as exc:
+            _LOGGER.warning(
+                "Échec du chargement du modèle faster-whisper '%s' : %s",
+                self._model_size,
+                exc,
+            )
             if self._device == "cpu" or self._used_cpu_fallback:
                 raise RuntimeError(
                     f"Impossible de charger le modèle faster-whisper "
-                    f"'{self._model_size}'. Vérifiez votre connexion réseau, "
+                    f"'{self._model_size}'. {exc} "
+                    f"Vérifiez votre connexion réseau, "
                     f"l'accès au répertoire {self._models_directory}, ou "
                     f"téléchargez le modèle explicitement avec :\n"
                     f"WhisperRuntimeProvider.install_model("

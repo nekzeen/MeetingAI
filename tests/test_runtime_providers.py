@@ -157,7 +157,7 @@ class TestWhisperRuntimeProvider(unittest.TestCase):
     @patch.object(
         WhisperRuntimeProvider,
         "_faster_whisper_module",
-        return_value=MagicMock(download_model=lambda _s, output_dir: output_dir / "small"),
+        return_value=MagicMock(download_model=lambda _s, output_dir: output_dir),
     )
     def test_install_model_success(
         self,
@@ -270,6 +270,28 @@ class TestWhisperRuntimeProvider(unittest.TestCase):
         with patch.object(WhisperRuntimeProvider, "_has_package", return_value=False):
             provider = WhisperRuntimeProvider()
             self.assertFalse(provider.can_install())
+
+
+    def test_install_model_downloads_to_model_subdirectory(self) -> None:
+        """install_model télécharge dans models_directory / model_size."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            provider = WhisperRuntimeProvider(models_directory=tmp_dir)
+            model_dir = Path(tmp_dir) / "small"
+            fake_module = MagicMock()
+            fake_module.download_model = MagicMock(return_value=str(model_dir))
+
+            with patch.object(
+                provider,
+                "_faster_whisper_module",
+                return_value=fake_module,
+            ):
+                report = provider.install_model("small", tmp_dir)
+
+            self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+            self.assertEqual(Path(report.details["model_path"]), model_dir)
+            fake_module.download_model.assert_called_once_with(
+                "small", output_dir=str(model_dir)
+            )
 
 
 class TestFFmpegRuntimeProvider(unittest.TestCase):
