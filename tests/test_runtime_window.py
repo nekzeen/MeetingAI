@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
+    QTextEdit,
 )
 
 from meetingai.gui.runtime_window import RuntimeWindow
@@ -300,6 +301,34 @@ class TestRuntimeWindow(unittest.TestCase):
         self.assertIsNotNone(
             self.window.findChild(QLineEdit, "ollama_model_input")
         )
+
+    def test_details_group_exists(self) -> None:
+        """La section Détails techniques est présente."""
+        group = self.window.findChild(QGroupBox, "details_group")
+        self.assertIsNotNone(group)
+        self.assertIn("Détails", group.title())
+
+    def test_details_edit_exists(self) -> None:
+        """Le QTextEdit de détails est présent et accessible."""
+        self.assertIsNotNone(
+            self.window.findChild(QTextEdit, "details_edit")
+        )
+
+    def test_reports_have_tooltips(self) -> None:
+        """Les cellules du tableau de diagnostics ont un tooltip."""
+        report = RuntimeReport(
+            provider_name="whisper",
+            status=RuntimeStatus.MISSING,
+            message="Modèle absent.",
+            details={},
+        )
+        self.controller.refresh.return_value = (RuntimeStatus.MISSING, [report], [])
+        self.controller.report_for.return_value = None
+        self.window._refresh()
+
+        table = self.window.findChild(QTableWidget, "reports_table")
+        self.assertEqual(table.item(0, 0).toolTip(), "whisper")
+        self.assertEqual(table.item(0, 2).toolTip(), "Modèle absent.")
 
 
 if __name__ == "__main__":

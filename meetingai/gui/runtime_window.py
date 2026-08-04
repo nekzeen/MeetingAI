@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import partial
 
+import json
 from collections.abc import Callable
 
 from PySide6.QtCore import Qt, QThread, Signal
@@ -12,6 +13,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -19,8 +21,10 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -125,13 +129,45 @@ class RuntimeWindow(QDialog):
         """Retourne le contrôleur associé."""
         return self._controller
 
+    @staticmethod
+    def _status_color(status: RuntimeStatus) -> str:
+        """Retourne la couleur associée à un état du Runtime."""
+        colors = {
+            RuntimeStatus.HEALTHY: "#28a745",
+            RuntimeStatus.DEGRADED: "#ffc107",
+            RuntimeStatus.MISSING: "#dc3545",
+            RuntimeStatus.ERROR: "#dc3545",
+            RuntimeStatus.UNKNOWN: "#6c757d",
+        }
+        return colors.get(status, "#212529")
+
+    def _style_status_label(self, label: QLabel, status: RuntimeStatus) -> None:
+        """Met à jour un QLabel avec l'indicateur visuel de l'état."""
+        color = self._status_color(status)
+        label.setStyleSheet(
+            f"QLabel {{ font-weight: bold; color: {color}; }}"
+        )
+
     def _setup_ui(self) -> None:
         """Construit les sections de la fenêtre."""
+        self.setMinimumSize(700, 500)
+        self.resize(900, 700)
+
         layout = QVBoxLayout(self)
+
+        scroll_area = QScrollArea(self)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+
+        content_widget = QWidget(self)
+        content_layout = QVBoxLayout(content_widget)
 
         self._status_label = QLabel(self)
         self._status_label.setObjectName("status_label")
-        layout.addWidget(self._status_label)
+        self._status_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        content_layout.addWidget(self._status_label)
 
         reports_group = QGroupBox("Diagnostics", self)
         reports_layout = QVBoxLayout(reports_group)
@@ -148,7 +184,7 @@ class RuntimeWindow(QDialog):
             QAbstractItemView.SelectionBehavior.SelectRows
         )
         reports_layout.addWidget(self._reports_table)
-        layout.addWidget(reports_group)
+        content_layout.addWidget(reports_group)
 
         whisper_group = QGroupBox("Whisper", self)
         whisper_group.setObjectName("whisper_group")
@@ -189,7 +225,7 @@ class RuntimeWindow(QDialog):
         self._whisper_install_button.clicked.connect(self._on_install_clicked)
         whisper_layout.addWidget(self._whisper_install_button)
 
-        layout.addWidget(whisper_group)
+        content_layout.addWidget(whisper_group)
 
         ollama_group = QGroupBox("Ollama", self)
         ollama_group.setObjectName("ollama_group")
@@ -265,14 +301,30 @@ class RuntimeWindow(QDialog):
         self._ollama_progress.setVisible(False)
         ollama_layout.addWidget(self._ollama_progress)
 
-        layout.addWidget(ollama_group)
+        content_layout.addWidget(ollama_group)
 
         actions_group = QGroupBox("Actions recommandées", self)
         actions_layout = QVBoxLayout(actions_group)
         self._actions_list = QListWidget(self)
         self._actions_list.setObjectName("actions_list")
         actions_layout.addWidget(self._actions_list)
-        layout.addWidget(actions_group)
+        content_layout.addWidget(actions_group)
+
+        details_group = QGroupBox("Détails techniques", self)
+        details_group.setObjectName("details_group")
+        details_group.setCheckable(True)
+        details_group.setChecked(False)
+        details_layout = QVBoxLayout(details_group)
+        self._details_edit = QTextEdit(self)
+        self._details_edit.setObjectName("details_edit")
+        self._details_edit.setReadOnly(True)
+        self._details_edit.setVisible(False)
+        details_layout.addWidget(self._details_edit)
+        details_group.toggled.connect(self._details_edit.setVisible)
+        content_layout.addWidget(details_group)
+
+        scroll_area.setWidget(content_widget)
+        layout.addWidget(scroll_area)
 
         self._refresh_button = QPushButton("Rafraîchir", self)
         self._refresh_button.setObjectName("refresh_button")
@@ -287,18 +339,41 @@ class RuntimeWindow(QDialog):
         self._update_whisper_section()
         self._update_ollama_section()
         self._update_actions(actions)
+        self._update_details(reports)
 
     def _update_status(self, status: RuntimeStatus) -> None:
-        """Met à jour le libellé de l'état global."""
+        """Met à jour le libellé de l'état global avec un indicateur visuel."""
         self._status_label.setText(f"État global : {status.name}")
+        self._style_status_label(self._status_label, status)
 
     def _update_reports(self, reports: list[RuntimeReport]) -> None:
         """Remplit le tableau des rapports de diagnostic."""
         self._reports_table.setRowCount(len(reports))
+        self._reports_table.setWordWrap(True)
+        self._reports_table.setTextElideMode(Qt.TextElideMode.ElideNone)
+
+        header = self._reports_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+
         for row, report in enumerate(reports):
-            self._reports_table.setItem(row, 0, QTableWidgetItem(report.provider_name))
-            self._reports_table.setItem(row, 1, QTableWidgetItem(report.status.name))
-            self._reports_table.setItem(row, 2, QTableWidgetItem(report.message))
+            name_item = QTableWidgetItem(report.provider_name)
+            name_item.setToolTip(report.provider_name)
+            name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self._reports_table.setItem(row, 0, name_item)
+
+            status_item = QTableWidgetItem(report.status.name)
+            status_item.setToolTip(report.status.name)
+            status_item.setFlags(status_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self._reports_table.setItem(row, 1, status_item)
+
+            message_item = QTableWidgetItem(report.message)
+            message_item.setToolTip(report.message)
+            message_item.setFlags(message_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self._reports_table.setItem(row, 2, message_item)
+
+            self._reports_table.resizeRowToContents(row)
 
     def _update_actions(self, actions: list[RuntimeAction]) -> None:
         """Remplit la liste des actions recommandées avec un emplacement bouton."""
@@ -313,8 +388,11 @@ class RuntimeWindow(QDialog):
             label = QLabel(
                 f"[{action.action_type.name}] {action.message}", widget
             )
+            label.setWordWrap(True)
             if action.description:
                 label.setToolTip(action.description)
+            if action.available:
+                label.setStyleSheet("font-weight: bold;")
             row_layout.addWidget(label, stretch=1)
 
             button = QPushButton(self._action_button_text(action.action_type), widget)
@@ -327,6 +405,17 @@ class RuntimeWindow(QDialog):
             item.setSizeHint(widget.sizeHint())
             self._actions_list.addItem(item)
             self._actions_list.setItemWidget(item, widget)
+
+    def _update_details(self, reports: list[RuntimeReport]) -> None:
+        """Remplit la section Détails techniques avec les rapports."""
+        details = {}
+        for report in reports:
+            details[report.provider_name] = {
+                "status": report.status.name,
+                "message": report.message,
+                "details": report.details,
+            }
+        self._details_edit.setPlainText(json.dumps(details, indent=2, ensure_ascii=False))
 
     def _action_button_text(self, action_type: RuntimeActionType) -> str:
         """Retourne le libellé du bouton selon le type d'action."""
@@ -643,14 +732,23 @@ class RuntimeWindow(QDialog):
         )
 
         self._ollama_provider_label.setText(f"Provider : {report.provider_name}")
+        self._ollama_provider_label.setToolTip(report.provider_name)
+        self._ollama_provider_label.setStyleSheet("font-weight: bold;")
         self._ollama_status_label.setText(f"État : {report.status.name}")
+        self._ollama_status_label.setToolTip(report.message)
+        self._style_status_label(self._ollama_status_label, report.status)
         self._ollama_version_label.setText(f"Version : {version}")
+        self._ollama_version_label.setStyleSheet("font-weight: bold;")
+        self._ollama_version_label.setToolTip(str(version))
         self._ollama_server_label.setText(f"Serveur : {host} ({server_state})")
+        self._ollama_server_label.setToolTip(str(host))
         self._ollama_model_label.setText(f"Modèle configuré : {configured}")
+        self._ollama_model_label.setStyleSheet("font-weight: bold;")
         self._ollama_models_label.setText(
             f"Modèles installés : {', '.join(str(m) for m in installed) or 'aucun'}"
         )
         self._ollama_info_label.setText(f"Information : {report.message}")
+        self._ollama_info_label.setToolTip(report.message)
 
         self._ollama_models_list.clear()
         for model in installed:
@@ -678,14 +776,21 @@ class RuntimeWindow(QDialog):
         version = details.get("version", "")
 
         self._whisper_provider_label.setText(f"Provider : {report.provider_name}")
+        self._whisper_provider_label.setToolTip(report.provider_name)
+        self._whisper_provider_label.setStyleSheet("font-weight: bold;")
         self._whisper_model_label.setText(f"Modèle : {model_size}")
+        self._whisper_model_label.setStyleSheet("font-weight: bold;")
         self._whisper_status_label.setText(f"État : {report.status.name}")
+        self._whisper_status_label.setToolTip(report.message)
+        self._style_status_label(self._whisper_status_label, report.status)
         self._whisper_path_label.setText(f"Emplacement : {model_path}")
+        self._whisper_path_label.setToolTip(str(model_path))
 
         info = report.message
         if version:
             info = f"v{version} — {info}"
         self._whisper_info_label.setText(f"Information : {info}")
+        self._whisper_info_label.setToolTip(info)
 
         self._whisper_install_button.setEnabled(
             report.status != RuntimeStatus.HEALTHY

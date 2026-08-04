@@ -267,6 +267,13 @@ aussi possible via `RuntimeController.start_server('ollama')`. Toutes les
 opérations longues tournent dans un `QThread` et `RuntimeWindow` rafraîchit
 automatiquement le diagnostic à la fin.
 
+L'affichage est optimisé pour la lisibilité : les colonnes du tableau de
+Diagnostics sont redimensionnables, les messages passent à la ligne, chaque
+cellule expose le texte complet en tooltip, et les états sont colorés (vert,
+jaune, rouge). Les détails techniques bruts sont regroupés dans une section
+"Détails" repliable. L'ensemble du contenu est embarqué dans une `QScrollArea`
+pour rester utilisable de 1366×768 à 4K.
+
 La fenêtre s'ouvre depuis le menu **Outils > État du système**. Les boutons
 sont activés selon la disponibilité de l'action (`available`). La gestion
 des modèles Whisper et Ollama est opérationnelle.
