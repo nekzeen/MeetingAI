@@ -33,9 +33,7 @@ class TestMediaInformationWidget(unittest.TestCase):
     def test_empty_state_shows_no_media(self) -> None:
         """L'état initial indique qu'aucun média n'est sélectionné."""
         self.assertEqual(self.widget._name_label.text(), "Aucun média sélectionné")
-        self.assertEqual(self.widget._path_label.text(), "-")
         self.assertEqual(self.widget._type_label.text(), "-")
-        self.assertEqual(self.widget._extension_label.text(), "-")
         self.assertEqual(self.widget._size_label.text(), "-")
 
     def test_set_media_updates_labels(self) -> None:
@@ -51,13 +49,27 @@ class TestMediaInformationWidget(unittest.TestCase):
         self.widget.set_media(media)
 
         self.assertEqual(self.widget._name_label.text(), "meeting.mp4")
-        self.assertEqual(
-            self.widget._path_label.text(),
-            str(Path("/tmp/meeting.mp4").resolve()),
-        )
         self.assertEqual(self.widget._type_label.text(), "video")
-        self.assertEqual(self.widget._extension_label.text(), ".mp4")
         self.assertEqual(self.widget._size_label.text(), "12345 octets")
+
+    def test_no_orphan_label_displays_path(self) -> None:
+        """Aucun QLabel orphelin n'affiche le chemin du fichier."""
+        media = MediaFile(
+            path=Path("/tmp/meeting.mp4").resolve(),
+            name="meeting.mp4",
+            extension=".mp4",
+            size=12345,
+            media_type=MediaType.VIDEO,
+        )
+
+        self.widget.set_media(media)
+
+        for label in self.widget.findChildren(QLabel):
+            self.assertNotEqual(
+                label.text(),
+                str(media.path),
+                "Le chemin du média ne doit apparaître dans aucun QLabel",
+            )
 
     def test_update_media_replaces_previous_display(self) -> None:
         """L'affichage est remplacé lors du changement de média."""

@@ -35,9 +35,7 @@ class MediaInformationWidget(QGroupBox):
         self._name_label = QLabel(self)
         self._name_label.setWordWrap(True)
         self._name_label.setStyleSheet("font-weight: bold; font-size: 15px;")
-        self._path_label = QLabel(self)
         self._type_label = QLabel(self)
-        self._extension_label = QLabel(self)
         self._size_label = QLabel(self)
 
         self._name_label.setToolTip("Nom du fichier")
@@ -69,14 +67,10 @@ class MediaInformationWidget(QGroupBox):
         """
         if media is None:
             self._name_label.setText("Aucun média sélectionné")
-            self._path_label.setText("-")
             self._type_label.setText("-")
-            self._extension_label.setText("-")
             self._size_label.setText("-")
             return
 
         self._name_label.setText(media.name)
-        self._path_label.setText(str(media.path))
         self._type_label.setText(media.type)
-        self._extension_label.setText(media.extension)
         self._size_label.setText(f"{media.size} octets")
