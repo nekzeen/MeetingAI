@@ -67,6 +67,38 @@ class RuntimeController:
         """Rafraîchit l'état, les rapports et les actions recommandées."""
         return self.status(), self.reports(), self.actions()
 
+    def report_for(self, provider_name: str) -> RuntimeReport | None:
+        """Diagnostique un provider donné par son nom.
+
+        Args:
+            provider_name: Nom unique du provider à diagnostiquer.
+
+        Returns:
+            Rapport du provider, ou ``None`` s'il n'est pas enregistré.
+        """
+        for provider in self._manager.providers:
+            if provider.name == provider_name:
+                return provider.diagnose()
+        return None
+
+    def install(self, provider_name: str) -> RuntimeReport:
+        """Lance l'installation d'un provider donné par son nom.
+
+        Args:
+            provider_name: Nom unique du provider à installer.
+
+        Returns:
+            Rapport décrivant le résultat de l'installation.
+        """
+        for provider in self._manager.providers:
+            if provider.name == provider_name:
+                return provider.install()
+        return RuntimeReport(
+            provider_name=provider_name,
+            status=RuntimeStatus.ERROR,
+            message=f"Provider '{provider_name}' introuvable.",
+        )
+
     def check_transcription(self) -> RuntimeGuardResult:
         """Vérifie les prérequis pour une transcription."""
         return self._guard.check_transcription()

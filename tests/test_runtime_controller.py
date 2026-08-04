@@ -1,6 +1,7 @@
 """Tests du contrôleur Runtime."""
 
 import unittest
+from unittest.mock import MagicMock
 
 from meetingai.controllers.runtime_controller import RuntimeController
 from meetingai.runtime.runtime_action import RuntimeAction, RuntimeActionType
@@ -212,6 +213,53 @@ class TestRuntimeController(unittest.TestCase):
 
         self.assertIsNotNone(result)
         self.assertTrue(result.allowed)
+
+    def test_report_for_returns_matching_provider_diagnose(self) -> None:
+        """report_for retourne le diagnostic du provider demandé."""
+        provider = MagicMock()
+        provider.name = "whisper"
+        provider.diagnose.return_value = RuntimeReport(
+            provider_name="whisper",
+            status=RuntimeStatus.HEALTHY,
+            message="ok",
+        )
+        controller = self._controller([provider])
+
+        report = controller.report_for("whisper")
+
+        provider.diagnose.assert_called_once()
+        self.assertEqual(report.provider_name, "whisper")
+
+    def test_report_for_returns_none_for_unknown_provider(self) -> None:
+        """report_for retourne None si le provider est inconnu."""
+        controller = self._controller([])
+
+        self.assertIsNone(controller.report_for("whisper"))
+
+    def test_install_calls_matching_provider_install(self) -> None:
+        """install délègue au provider portant le nom donné."""
+        provider = MagicMock()
+        provider.name = "whisper"
+        provider.install.return_value = RuntimeReport(
+            provider_name="whisper",
+            status=RuntimeStatus.HEALTHY,
+            message="installed",
+        )
+        controller = self._controller([provider])
+
+        report = controller.install("whisper")
+
+        provider.install.assert_called_once()
+        self.assertEqual(report.status, RuntimeStatus.HEALTHY)
+
+    def test_install_returns_error_for_unknown_provider(self) -> None:
+        """install retourne une erreur si le provider est inconnu."""
+        controller = self._controller([])
+
+        report = controller.install("whisper")
+
+        self.assertEqual(report.status, RuntimeStatus.ERROR)
+        self.assertIn("introuvable", report.message)
 
 
 if __name__ == "__main__":

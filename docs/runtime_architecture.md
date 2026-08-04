@@ -225,25 +225,35 @@ pour l'interface. Il est instancié dans `ApplicationContext` et enregistré dan
 
 - `status()` : état global agrégé.
 - `reports()` : rapports de diagnostic détaillés.
+- `report_for(provider_name)` : diagnostic d'un provider donné.
 - `actions()` : actions recommandées.
 - `refresh()` : rafraîchit les trois informations précédentes.
+- `install(provider_name)` : déclenche l'installation d'un provider.
 - `check_transcription()`, `check_summary()`, `check_pipeline()` : vérification
 des prérequis pour chaque opération.
 
 ### RuntimeWindow
 
-`meetingai/gui/runtime_window.py` affiche trois zones :
+`meetingai/gui/runtime_window.py` affiche quatre zones :
 
 1. **État global** : statut agrégé du Runtime.
 2. **Diagnostics** : tableau des rapports de chaque provider (nom, état,
    message).
-3. **Actions recommandées** : liste des actions proposées avec un emplacement
+3. **Whisper** : section dédiée au provider Whisper affichant le modèle
+   sélectionné, l'état du modèle, son emplacement et les informations retournées
+   par `WhisperRuntimeProvider`.
+4. **Actions recommandées** : liste des actions proposées avec un emplacement
    bouton préparé pour les futures opérations d'installation, de réparation ou
    de téléchargement.
 
+La section Whisper intègre un bouton **Installer** qui déclenche
+`RuntimeController.install('whisper')` dans un thread secondaire. Une barre de
+progression indéterminée est affichée pendant le téléchargement. À la fin,
+`RuntimeWindow` affiche le résultat et rafraîchit automatiquement le diagnostic.
+
 La fenêtre s'ouvre depuis le menu **Outils > État du système**. Les boutons
- sont activés selon la disponibilité de l'action (`available`) mais ne
-réalisent pas encore l'opération complète.
+sont activés selon la disponibilité de l'action (`available`). L'installation
+Whisper est opérationnelle ; les autres actions restent des emplacements.
 
 ### ActionManager et MainWindow
 

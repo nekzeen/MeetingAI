@@ -36,6 +36,7 @@ class TestRuntimeWindow(unittest.TestCase):
             [],
             [],
         )
+        self.controller.report_for.return_value = None
         self.window = RuntimeWindow(self.controller)
 
     def tearDown(self) -> None:
@@ -144,6 +145,80 @@ class TestRuntimeWindow(unittest.TestCase):
         titles = [group.title() for group in groups]
         self.assertIn("Diagnostics", titles)
         self.assertIn("Actions recommandées", titles)
+
+    def test_whisper_group_exists(self) -> None:
+        """La section Whisper est présente."""
+        group = self.window.findChild(QGroupBox, "whisper_group")
+        self.assertIsNotNone(group)
+
+    def test_whisper_install_button_exists(self) -> None:
+        """Le bouton d'installation Whisper est présent."""
+        button = self.window.findChild(QPushButton, "whisper_install_button")
+        self.assertIsNotNone(button)
+        self.assertEqual(button.text(), "Installer")
+
+    def test_whisper_section_is_populated(self) -> None:
+        """La section Whisper affiche les informations du rapport."""
+        report = RuntimeReport(
+            provider_name="whisper",
+            status=RuntimeStatus.MISSING,
+            message="Modèle absent.",
+            details={
+                "model_size": "small",
+                "model_path": "models/small",
+                "version": "1.2.1",
+            },
+        )
+        self.controller.report_for.return_value = report
+        self.window._refresh()
+
+        self.assertIn("small", self.window.findChild(QLabel, "whisper_model_label").text())
+        self.assertIn("models/small", self.window.findChild(QLabel, "whisper_path_label").text())
+        self.assertIn("1.2.1", self.window.findChild(QLabel, "whisper_info_label").text())
+
+    def test_whisper_install_button_enabled_when_missing(self) -> None:
+        """Le bouton Installer est actif lorsque le modèle est manquant."""
+        report = RuntimeReport(
+            provider_name="whisper",
+            status=RuntimeStatus.MISSING,
+            message="",
+            details={},
+        )
+        self.controller.report_for.return_value = report
+        self.window._refresh()
+
+        button = self.window.findChild(QPushButton, "whisper_install_button")
+        self.assertTrue(button.isEnabled())
+
+    def test_whisper_install_button_disabled_when_healthy(self) -> None:
+        """Le bouton Installer est inactif lorsque le modèle est sain."""
+        report = RuntimeReport(
+            provider_name="whisper",
+            status=RuntimeStatus.HEALTHY,
+            message="",
+            details={},
+        )
+        self.controller.report_for.return_value = report
+        self.window._refresh()
+
+        button = self.window.findChild(QPushButton, "whisper_install_button")
+        self.assertFalse(button.isEnabled())
+
+    def test_run_install_uses_controller(self) -> None:
+        """L'installation délègue au contrôleur dans un thread."""
+        self.controller.install.return_value = RuntimeReport(
+            provider_name="whisper",
+            status=RuntimeStatus.HEALTHY,
+            message="ok",
+            details={},
+        )
+
+        self.window._run_install("whisper")
+
+        thread = self.window._install_thread
+        self.assertIsNotNone(thread)
+        self.assertTrue(thread.wait(2000))
+        self.controller.install.assert_called_once_with("whisper")
 
 
 if __name__ == "__main__":
