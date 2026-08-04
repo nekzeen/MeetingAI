@@ -93,6 +93,31 @@ les briques du noyau (`core`) et les services (`services`).
 
 ---
 
+## Interface principale
+
+`MainWindow` (`meetingai/gui/main_window.py`) adopte une disposition guidée par
+le workflow utilisateur :
+
+- **Écran d'accueil** : `WelcomeWidget` s'affiche tant qu'aucun média n'est
+  ouvert. Il présente un message de bienvenue, un gros bouton "Ouvrir un média"
+  et un rappel visuel des quatre étapes du workflow.
+- **Zone d'édition** : dès qu'un média est chargé, `Workspace` bascule vers
+  `_EditorWidget`. Un `QSplitter` horizontal place le panneau latéral
+  (informations média + historique) à gauche et la zone de travail principale
+  (transcription + résumé) à droite. La transcription occupe la majeure partie
+  de l'écran.
+- **Barre d'outils** : expose les actions clés (Ouvrir, Transcrire, Résumer,
+  Exporter) via `ActionManager`.
+- **Barre d'état** : affiche l'état du Runtime, le fournisseur STT, le
+  fournisseur IA, un message de progression et une barre de progression
+  indéterminée pendant les traitements.
+
+Les informations du média sont présentées de manière compacte dans
+`MediaInformationWidget` : nom, type et taille, les détails techniques étant
+accessibles uniquement via des tooltips.
+
+---
+
 ## Cycle de vie du modèle Faster-Whisper
 
 ### Initialisation

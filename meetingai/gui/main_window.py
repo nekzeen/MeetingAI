@@ -1,14 +1,19 @@
 """Fenêtre principale de MeetingAI."""
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QDialog,
+    QHBoxLayout,
+    QLabel,
     QMainWindow,
     QMenu,
     QMenuBar,
     QMessageBox,
+    QProgressBar,
     QStatusBar,
     QToolBar,
+    QWidget,
 )
 
 from meetingai.controllers.settings_controller import SettingsController
@@ -75,7 +80,7 @@ class MainWindow(QMainWindow):
         )
         self._setup_menu_bar()
         self._setup_tool_bar()
-        self.setStatusBar(QStatusBar(self))
+        self._setup_status_bar()
         if self._context is not None:
             self._action_manager.connect_open_media(self._context.media_controller)
             self._action_manager.connect_transcribe(
@@ -124,6 +129,7 @@ class MainWindow(QMainWindow):
 
     def _on_transcription_ready(self, result: TranscriptionResult) -> None:
         """Affiche un avertissement si la transcription a utilisé le fallback CPU."""
+        self._progress_bar.setVisible(False)
         warning = result.metadata.get("warning")
         if warning:
             QMessageBox.information(
@@ -133,11 +139,13 @@ class MainWindow(QMainWindow):
             )
 
     def _show_transcription_status(self, message: str) -> None:
-        """Affiche le message de phase de transcription dans la barre de statut."""
+        """Affiche le message de phase de transcription et active la progression."""
         self.statusBar().showMessage(message)
+        self._progress_bar.setVisible(True)
 
     def _show_transcription_error(self, message: str) -> None:
         """Affiche une boîte de dialogue en cas d'échec de transcription."""
+        self._progress_bar.setVisible(False)
         QMessageBox.critical(
             self,
             "Erreur de transcription",
@@ -146,6 +154,7 @@ class MainWindow(QMainWindow):
 
     def _show_pipeline_error(self, message: str) -> None:
         """Affiche une boîte de dialogue en cas d'échec du pipeline."""
+        self._progress_bar.setVisible(False)
         QMessageBox.critical(
             self,
             "Erreur du pipeline",
@@ -214,8 +223,70 @@ class MainWindow(QMainWindow):
         help_menu.addAction(actions["about"])
 
     def _setup_tool_bar(self) -> None:
-        """Ajoute une barre d'outils vide."""
-        self.addToolBar("Principal")
+        """Ajoute une barre d'outils avec les actions du workflow."""
+        tool_bar = self.addToolBar("Principal")
+        tool_bar.setObjectName("main_tool_bar")
+        tool_bar.setMovable(False)
+        tool_bar.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextUnderIcon
+        )
+        actions = self._action_manager.actions
+        tool_bar.addAction(actions["open"])
+        tool_bar.addAction(actions["transcribe"])
+        tool_bar.addAction(actions["summarize"])
+        tool_bar.addAction(actions["export_markdown"])
+
+    def _setup_status_bar(self) -> None:
+        """Construit la barre de statut avec les fournisseurs et la progression."""
+        status_bar = QStatusBar(self)
+        status_bar.setObjectName("main_status_bar")
+        self.setStatusBar(status_bar)
+
+        self._runtime_status_label = QLabel("Runtime : —", self)
+        self._runtime_status_label.setObjectName("runtime_status_label")
+        status_bar.addWidget(self._runtime_status_label)
+
+        self._stt_provider_label = QLabel("STT : —", self)
+        self._stt_provider_label.setObjectName("stt_provider_label")
+        status_bar.addWidget(self._stt_provider_label)
+
+        self._ia_provider_label = QLabel("IA : —", self)
+        self._ia_provider_label.setObjectName("ia_provider_label")
+        status_bar.addWidget(self._ia_provider_label)
+
+        status_bar.addPermanentWidget(QWidget(self), stretch=1)
+
+        self._progress_bar = QProgressBar(self)
+        self._progress_bar.setObjectName("progress_bar")
+        self._progress_bar.setRange(0, 0)
+        self._progress_bar.setTextVisible(False)
+        self._progress_bar.setVisible(False)
+        self._progress_bar.setMaximumWidth(120)
+        status_bar.addPermanentWidget(self._progress_bar)
+
+        self._update_status_bar()
+
+    def _update_status_bar(self) -> None:
+        """Rafraîchit les fournisseurs affichés dans la barre de statut."""
+        if self._context is None:
+            return
+        runtime = self._context.runtime_controller
+        status = runtime.status()
+        self._runtime_status_label.setText(f"Runtime : {status.name}")
+        for name in ("whisper", "ollama"):
+            report = runtime.report_for(name)
+            text = "—"
+            if report is not None:
+                text = f"{report.provider_name} ({report.status.name})"
+            if name == "whisper":
+                self._stt_provider_label.setText(f"STT : {text}")
+            else:
+                self._ia_provider_label.setText(f"IA : {text}")
+
+    def _show_transcription_status(self, message: str) -> None:
+        """Affiche le message de phase de transcription et active la progression."""
+        self.statusBar().showMessage(message)
+        self._progress_bar.setVisible(True)
 
     def _center_on_screen(self) -> None:
         """Centre la fenêtre sur l'écran principal."""

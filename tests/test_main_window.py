@@ -4,13 +4,19 @@ import unittest
 
 from PySide6.QtWidgets import (
     QApplication,
-    QHBoxLayout,
+    QLabel,
     QMainWindow,
     QMenu,
     QMenuBar,
+    QProgressBar,
+    QPushButton,
+    QStackedWidget,
     QStatusBar,
     QToolBar,
+    QVBoxLayout,
 )
+
+from meetingai.gui.workspace import Workspace
 
 from meetingai.gui.action_manager import ActionManager
 from meetingai.gui.main_window import MainWindow
@@ -60,10 +66,18 @@ class TestMainWindow(unittest.TestCase):
         """La fenêtre utilise le composant Workspace comme widget central."""
         self.assertIsInstance(self.window.centralWidget(), Workspace)
 
-    def test_workspace_has_horizontal_layout(self) -> None:
-        """Le workspace dispose d'un layout horizontal vide."""
+    def test_workspace_has_vertical_layout(self) -> None:
+        """Le workspace dispose d'un layout vertical."""
         workspace = self.window.centralWidget()
-        self.assertIsInstance(workspace.layout(), QHBoxLayout)
+        self.assertIsInstance(workspace.layout(), QVBoxLayout)
+
+    def test_welcome_widget_is_initial_page(self) -> None:
+        """La page d'accueil est affichée au démarrage."""
+        workspace = self.window.centralWidget()
+        stack = workspace.findChild(QStackedWidget)
+        self.assertIsNotNone(stack)
+        current = stack.widget(0)
+        self.assertIsNotNone(current.findChild(QPushButton, "welcome_open_button"))
 
     def test_has_menu_bar(self) -> None:
         """La fenêtre possède une barre de menus."""
@@ -106,10 +120,20 @@ class TestMainWindow(unittest.TestCase):
         self.assertIn("À propos", texts)
 
     def test_has_tool_bar(self) -> None:
-        """La fenêtre possède une barre d'outils vide."""
+        """La fenêtre possède une barre d'outils avec les actions du workflow."""
         toolbars = self.window.findChildren(QToolBar)
         self.assertEqual(len(toolbars), 1)
-        self.assertFalse(toolbars[0].actions())
+        texts = [action.text() for action in toolbars[0].actions()]
+        self.assertIn("Ouvrir", texts)
+        self.assertIn("Transcrire", texts)
+
+    def test_status_bar_has_provider_labels(self) -> None:
+        """La barre d'état affiche les fournisseurs et la progression."""
+        self.assertIsInstance(self.window.statusBar(), QStatusBar)
+        self.assertIsNotNone(self.window.findChild(QLabel, "runtime_status_label"))
+        self.assertIsNotNone(self.window.findChild(QLabel, "stt_provider_label"))
+        self.assertIsNotNone(self.window.findChild(QLabel, "ia_provider_label"))
+        self.assertIsNotNone(self.window.findChild(QProgressBar, "progress_bar"))
 
     def test_has_status_bar(self) -> None:
         """La fenêtre possède une barre de statut."""

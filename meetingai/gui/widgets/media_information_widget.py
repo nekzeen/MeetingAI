@@ -23,19 +23,27 @@ class MediaInformationWidget(QWidget):
         self.set_media(None)
 
     def _setup_ui(self) -> None:
-        """Crée les labels d'affichage."""
-        layout = QFormLayout(self)
+        """Crée les labels d'affichage compactés."""
+        from PySide6.QtWidgets import QGridLayout
+
+        layout = QGridLayout(self)
+        layout.setHorizontalSpacing(12)
+        layout.setVerticalSpacing(8)
+
         self._name_label = QLabel(self)
+        self._name_label.setWordWrap(True)
+        self._name_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         self._path_label = QLabel(self)
         self._type_label = QLabel(self)
         self._extension_label = QLabel(self)
         self._size_label = QLabel(self)
 
-        layout.addRow("Nom :", self._name_label)
-        layout.addRow("Chemin :", self._path_label)
-        layout.addRow("Type :", self._type_label)
-        layout.addRow("Extension :", self._extension_label)
-        layout.addRow("Taille :", self._size_label)
+        layout.addWidget(QLabel("Fichier :"), 0, 0)
+        layout.addWidget(self._name_label, 0, 1)
+        layout.addWidget(QLabel("Type :"), 1, 0)
+        layout.addWidget(self._type_label, 1, 1)
+        layout.addWidget(QLabel("Taille :"), 2, 0)
+        layout.addWidget(self._size_label, 2, 1)
 
     def set_media(self, media: MediaFile | None) -> None:
         """Met à jour l'affichage avec les informations du média.
